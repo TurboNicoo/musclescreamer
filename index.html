@@ -333,7 +333,8 @@ const ic={
   moon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>',
   info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>',
   play:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5v14l11-7z"/></svg>',
-  cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>'
+  cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  share:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7M16 6l-4-4-4 4M12 2v14"/></svg>'
 };
 const BRAND_SVG=`<svg class="brandmark" viewBox="0 0 176 28" role="img" aria-label="MuscleScreamer">
   <path class="boltshadow" transform="translate(2,2)" d="M13 0 L3 15 H9 L5 28 L21 11 H14 Z"/>
@@ -760,6 +761,46 @@ function openIcs(pid){
 }
 
 /* ---------- day ---------- */
+function dayShareText(p,wk,day){
+  const dow=DOWNL[(day.dow||"").toUpperCase()]||day.dow;
+  const L=[];
+  L.push(`Training — ${p.name} · Week ${view.w} · ${dow}${day.label?" · "+day.label:""}`);
+  L.push(new Date().toLocaleDateString("nl-NL",{weekday:"long",day:"2-digit",month:"long",year:"numeric"}));
+  L.push("");
+  let totalVolume=0, totalSets=0, loggedCount=0;
+  day.exercises.forEach((ex,i)=>{
+    const lk=dayKey(p.id,view.w,view.d)+":"+i;
+    const hist=S.log[lk]||[];
+    const last=hist.length?hist[hist.length-1]:null;
+    const prevSess=hist.length>1?hist[hist.length-2]:null;
+    L.push(`${i+1}. ${ex.name} — ${ex.muscle||"?"} (${eqName(ex.equip)})`);
+    const presc=[ex.sets?ex.sets+" sets":"", ex.reps?ex.reps+" reps":"", ex.rpe?"RPE "+ex.rpe:"", ex.rest?"rust "+ex.rest:"", ex.goal||""].filter(Boolean).join(" · ");
+    if(presc) L.push(`   Voorgeschreven: ${presc}`);
+    if(last){
+      loggedCount++;
+      const setsTxt=last.sets.map(s=>fmt(s.w)+"kg×"+s.r).join(", ");
+      L.push(`   Gelogd (${last.date}): ${setsTxt}`);
+      last.sets.forEach(s=>{ if(s.r>0){ totalVolume+=(s.w||0)*s.r; totalSets++; } });
+      if(prevSess){
+        L.push(`   Vorige keer (${prevSess.date}): ${prevSess.sets.map(s=>fmt(s.w)+"kg×"+s.r).join(", ")}`);
+      }
+    } else {
+      L.push("   Niet gelogd.");
+    }
+    if(ex.notes&&ex.notes.length) L.push(`   Let op: ${ex.notes.join(" / ")}`);
+    L.push("");
+  });
+  L.push(`Totaal: ${loggedCount}/${day.exercises.length} oefeningen gelogd · ${totalSets} werksets · ${Math.round(totalVolume)} kg volume`);
+  return L.join("\n");
+}
+async function shareDay(p,wk,day){
+  const text=dayShareText(p,wk,day);
+  try{
+    if(navigator.share){ await navigator.share({title:"Training – "+p.name, text}); return; }
+  }catch(e){ if(e&&e.name==="AbortError") return; }
+  try{ await navigator.clipboard.writeText(text); toast("Gekopieerd — plak in ChatGPT."); }
+  catch(e){ toast("Kon niet delen of kopiëren."); }
+}
 function renderDay(a){
   const p=prog(view.pid);const wk=p.weeks.find(x=>x.n===view.w);const day=wk.days[view.d];
   const done=S.done[dayKey(p.id,view.w,view.d)]||[];
@@ -781,6 +822,10 @@ function renderDay(a){
     l.appendChild(c);
   });
   a.appendChild(l);
+  const shareBtn=el("button","btn ghost small",`${ic.share} Deel met ChatGPT`);
+  shareBtn.style.marginTop="14px";
+  shareBtn.onclick=()=>shareDay(p,wk,day);
+  a.appendChild(shareBtn);
 }
 function fmt(n){return n==null||n===""?"—":(Math.round(n*10)/10).toString().replace(".",",")}
 function parseNum(v){return parseFloat(String(v).replace(",","."))}
