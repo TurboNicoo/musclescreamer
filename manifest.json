@@ -1,0 +1,17 @@
+{
+  "name": "MuscleScreamer",
+  "short_name": "MuscleScreamer",
+  "description": "Eigen 13-weekse basisprogramma + Mountain Dog 2.0 trainingslog",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#120A1E",
+  "theme_color": "#FF5A1F",
+  "lang": "nl",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
