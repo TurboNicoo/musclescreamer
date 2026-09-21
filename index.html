@@ -271,7 +271,7 @@ const KEY="krachtlog_v2";
 let S=load();
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||{}}catch(e){return{}}}
 function writeLS(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
-function normalize(){S.log=S.log||{};S.done=S.done||{};S.cardio=S.cardio||[];S.exNote=S.exNote||{}}
+function normalize(){S.log=S.log||{};S.done=S.done||{};S.cardio=S.cardio||[];S.exNote=S.exNote||{};S.dayCardio=S.dayCardio||{};S.daySteps=S.daySteps||{}}
 function save(){S._mtime=Date.now();writeLS();scheduleSync()}
 normalize();
 if(S.theme)document.documentElement.setAttribute("data-theme",S.theme);
@@ -490,7 +490,7 @@ function renderStart(a){
   cc.innerHTML=`<span class="rail"></span><div class="go">${ic.chev}</div>
     <div class="ord">DAGELIJKS · APART</div><h2>Ochtend-cardio</h2>
     <div class="sub">Nuchtere zone 2 + 2× intervallen — vetverlies en cardiovasculaire gezondheid</div>
-    <div class="meta"><span class="chip cool">${cnt} sessies deze week</span><span class="chip">${S.cardio.length} totaal gelogd</span></div>`;
+    <div class="meta"><span class="chip cool">${cnt} sessies deze week</span><span class="chip">${allCardioEntries().length} totaal gelogd</span></div>`;
   cc.onclick=()=>go({name:"cardio"});
   list.appendChild(cc);
   // weekrapport card
@@ -543,7 +543,7 @@ function weekStats(off){
       }
     }
   }
-  const cw=S.cardio.filter(c=>inWk(c.ts||0));
+  const cw=allCardioEntries().filter(c=>inWk(c.ts||0));
   return {workouts:workouts.size, sets, reps, volume:Math.round(volume), prs, drops, moves,
           cardioN:cw.length, cardioMin:cw.reduce((a,c)=>a+(+c.min||0),0),
           cardioInt:cw.filter(c=>/interval/i.test(c.type)).length};
@@ -578,9 +578,17 @@ function renderReport(a){
   });
   a.appendChild(bl);
 }
+function allCardioEntries(){
+  const out=S.cardio.slice();
+  Object.values(S.dayCardio||{}).forEach(slots=>{
+    if(slots.pre) out.push(slots.pre);
+    if(slots.post) out.push(slots.post);
+  });
+  return out;
+}
 function cardioThisWeek(){
   const now=new Date();const d=new Date(now);d.setDate(now.getDate()-((now.getDay()+6)%7));d.setHours(0,0,0,0);
-  return S.cardio.filter(x=>new Date(x.ts||x.date)>=d).length;
+  return allCardioEntries().filter(x=>new Date(x.ts||x.date)>=d).length;
 }
 
 /* ---------- program ---------- */
@@ -790,6 +798,16 @@ function dayShareText(p,wk,day){
     if(ex.notes&&ex.notes.length) L.push(`   Let op: ${ex.notes.join(" / ")}`);
     L.push("");
   });
+  const dk0=dayKey(p.id,view.w,view.d);
+  const dc0=S.dayCardio[dk0]||{};
+  const cardioLine=(e)=>`${e.type} · ${e.min} min${e.hr?" · "+e.hr+" bpm":""}${e.rpe?" · RPE "+e.rpe:""}${e.note?" — "+e.note:""}`;
+  if(dc0.pre||dc0.post||S.daySteps[dk0]){
+    L.push("--- Cardio & stappen ---");
+    if(dc0.pre) L.push(`Cardio voor de training: ${cardioLine(dc0.pre)}`);
+    if(dc0.post) L.push(`Cardio na de training: ${cardioLine(dc0.post)}`);
+    if(S.daySteps[dk0]) L.push(`Stappen vandaag: ${S.daySteps[dk0]}`);
+    L.push("");
+  }
   L.push(`Totaal: ${loggedCount}/${day.exercises.length} oefeningen gelogd · ${totalSets} werksets · ${Math.round(totalVolume)} kg volume`);
   return L.join("\n");
 }
@@ -822,6 +840,41 @@ function renderDay(a){
     l.appendChild(c);
   });
   a.appendChild(l);
+
+  const dk=dayKey(p.id,view.w,view.d);
+  const cardioSec=el("div","subsec");
+  cardioSec.appendChild(el("span","eyebrow","Cardio & stappen"));
+  const cardioList=el("div","hist");
+  const cardioRow=(slot,label)=>{
+    const dc=S.dayCardio[dk]||{};
+    const entry=dc[slot];
+    const row=el("div","hrow");
+    row.style.cursor="pointer";
+    const txt=entry?`${entry.type} · ${entry.min} min${entry.hr?" · "+entry.hr+" bpm":""}`:"nog niet gelogd";
+    row.innerHTML=`<span class="d">${esc(label)}</span><span>${esc(txt)}</span>`;
+    row.onclick=()=>openCardio({
+      eyebrow:label, heading:"Cardio loggen", initial:entry||{},
+      onSave:(e)=>{S.dayCardio[dk]=S.dayCardio[dk]||{};S.dayCardio[dk][slot]=e;},
+      onDelete: entry?(()=>{ if(S.dayCardio[dk]) delete S.dayCardio[dk][slot]; }):null
+    });
+    return row;
+  };
+  cardioList.appendChild(cardioRow("pre","Cardio voor de training"));
+  cardioList.appendChild(cardioRow("post","Cardio na de training"));
+  cardioSec.appendChild(cardioList);
+  const stepsRow=el("div","block");stepsRow.style.marginTop="12px";
+  stepsRow.appendChild(el("span","eyebrow","Stappen vandaag"));
+  const stepsInput=el("input","namein");
+  stepsInput.type="text";stepsInput.inputMode="numeric";stepsInput.placeholder="bv. 8000";
+  stepsInput.value=S.daySteps[dk]||"";
+  stepsInput.onchange=stepsInput.onblur=()=>{
+    const v=parseInt(String(stepsInput.value).replace(/\D/g,""),10);
+    S.daySteps[dk]=isNaN(v)?null:v; save();
+  };
+  stepsRow.appendChild(stepsInput);
+  cardioSec.appendChild(stepsRow);
+  a.appendChild(cardioSec);
+
   const shareBtn=el("button","btn ghost small",`${ic.share} Deel met ChatGPT`);
   shareBtn.style.marginTop="14px";
   shareBtn.onclick=()=>shareDay(p,wk,day);
@@ -951,7 +1004,7 @@ function renderCardio(a){
     {t:"Opbouw week voor week", html:DATA.cardio.progression},
     {t:"Zones & vuistregels", html:DATA.cardio.zones},
   ]));
-  const add=el("button","btn","Sessie loggen");add.style.marginTop="14px";add.onclick=openCardio;a.appendChild(add);
+  const add=el("button","btn","Sessie loggen");add.style.marginTop="14px";add.onclick=()=>openCardio();a.appendChild(add);
   const sec=el("div","sectlabel",`<h3>Logboek</h3><span class="eyebrow">${cardioThisWeek()} deze week</span>`);
   a.appendChild(sec);
   const l=el("div","hist");
@@ -963,8 +1016,10 @@ function renderCardio(a){
   });
   a.appendChild(l);
 }
-function openCardio(){
-  sheetState={cardio:{type:"Zone 2 (LISS)",min:30,hr:"",rpe:"",note:""}};
+function openCardio(cfg){
+  cfg=cfg||{};
+  const init=cfg.initial||{};
+  sheetState={cardio:{type:init.type||"Zone 2 (LISS)",min:init.min!=null?init.min:30,hr:init.hr||"",rpe:init.rpe||"",note:init.note||""},cardioCfg:cfg};
   const host=$("#sheetHost");host.innerHTML="";
   const sc=el("div","scrim");sc.onclick=closeSheet;
   const sh=el("div","sheet");sh.appendChild(el("div","grab"));sh.appendChild(el("div","sheet-in"));
@@ -973,13 +1028,13 @@ function openCardio(){
   drawCardio();
 }
 function drawCardio(){
-  const c=sheetState.cardio;const inr=$(".sheet-in");inr.innerHTML="";
-  inr.appendChild(el("div","eyebrow","Ochtend-cardio"));
-  inr.appendChild(el("h2",null,"Sessie loggen"));
+  const c=sheetState.cardio;const cfg=sheetState.cardioCfg||{};const inr=$(".sheet-in");inr.innerHTML="";
+  inr.appendChild(el("div","eyebrow",cfg.eyebrow||"Ochtend-cardio"));
+  inr.appendChild(el("h2",null,cfg.heading||"Sessie loggen"));
   const s1=el("div","block");s1.appendChild(el("span","eyebrow","Type"));
   const g=el("div","segs");
   ["Zone 2 (LISS)","Intervallen","Zone 2 + intervallen","Anders"].forEach(t=>{
-    const b=el("button","seg"+(c.type===t?" on":""),t);b.onclick=()=>{c.type=t;save();drawCardio()};g.appendChild(b)});
+    const b=el("button","seg"+(c.type===t?" on":""),t);b.onclick=()=>{c.type=t;drawCardio()};g.appendChild(b)});
   s1.appendChild(g);inr.appendChild(s1);
   const s2=el("div","setrows");
   const mk=(lab,obj,prop,suf,step)=>{const r=el("div","setrow");r.appendChild(el("div","lab",lab));
@@ -989,9 +1044,18 @@ function drawCardio(){
   const nt=el("textarea","namein");nt.rows=2;nt.placeholder="notitie (route, hoe het voelde…)";nt.value=c.note||"";
   nt.oninput=()=>c.note=nt.value;inr.appendChild(nt);
   const b=el("button","btn","Opslaan");b.style.marginTop="10px";
-  b.onclick=()=>{S.cardio.push({date:new Date().toLocaleDateString("nl-NL",{day:"2-digit",month:"short"}),ts:Date.now(),
-    type:c.type,min:c.min||0,hr:c.hr||"",rpe:c.rpe||"",note:c.note||""});save();closeSheet();render();toast("Cardio gelogd.")};
+  b.onclick=()=>{
+    const entry={date:new Date().toLocaleDateString("nl-NL",{day:"2-digit",month:"short"}),ts:Date.now(),
+      type:c.type,min:c.min||0,hr:c.hr||"",rpe:c.rpe||"",note:c.note||""};
+    if(cfg.onSave){cfg.onSave(entry)} else {S.cardio.push(entry)}
+    save();closeSheet();render();toast("Cardio gelogd.");
+  };
   inr.appendChild(b);
+  if(cfg.onDelete){
+    const db=el("button","btn ghost small","Verwijderen");db.style.marginTop="8px";
+    db.onclick=()=>{cfg.onDelete();save();closeSheet();render();toast("Verwijderd.")};
+    inr.appendChild(db);
+  }
 }
 
 /* ---------- backup ---------- */
@@ -1037,10 +1101,11 @@ function backupSection(a){
   bk.appendChild(rs);a.appendChild(bk);
 }
 function exportCode(){try{return btoa(unescape(encodeURIComponent(JSON.stringify(
-  {v:2,log:S.log,done:S.done,cardio:S.cardio,exNote:S.exNote,theme:S.theme}))))}catch(e){return""}}
+  {v:2,log:S.log,done:S.done,cardio:S.cardio,exNote:S.exNote,theme:S.theme,dayCardio:S.dayCardio,daySteps:S.daySteps}))))}catch(e){return""}}
 function importCode(str){try{const o=JSON.parse(decodeURIComponent(escape(atob(String(str).trim()))));
   if(typeof o!=="object"||!o)return false;
   S.log=o.log||{};S.done=o.done||{};S.cardio=o.cardio||[];S.exNote=o.exNote||{};
+  S.dayCardio=o.dayCardio||{};S.daySteps=o.daySteps||{};
   if(o.theme){S.theme=o.theme;document.documentElement.setAttribute("data-theme",o.theme)}
   save();S._backupAt=S._mtime;writeLS();return true}catch(e){return false}}
 
