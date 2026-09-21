@@ -381,6 +381,27 @@ function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");cl
 
 function prog(id){return DATA.programs.find(p=>p.id===id)}
 function dayKey(pid,w,d){return pid+":"+w+":"+d}
+function historyForExercise(ex,lk){
+  const own=S.log[lk]||[];
+  if(own.length) return own;
+  const collected=[];
+  for(const p of DATA.programs){
+    for(const w of (p.weeks||[])){
+      for(let di=0;di<w.days.length;di++){
+        const day=w.days[di];
+        for(let xi=0;xi<day.exercises.length;xi++){
+          if(day.exercises[xi].name!==ex.name) continue;
+          const k=dayKey(p.id,w.n,di)+":"+xi;
+          if(k===lk) continue;
+          const h=S.log[k];
+          if(h&&h.length) collected.push(...h);
+        }
+      }
+    }
+  }
+  collected.sort((a,b)=>(a.ts||0)-(b.ts||0));
+  return collected;
+}
 function dayProgress(pid,w,d){
   const p=prog(pid);const wk=(p.weeks||[]).find(x=>x.n===w);if(!wk)return 0;
   const day=wk.days[d];if(!day||!day.exercises.length)return 0;
@@ -769,6 +790,17 @@ function openIcs(pid){
 }
 
 /* ---------- day ---------- */
+function dayCompleteInfo(p,day){
+  const dk=dayKey(p.id,view.w,view.d);
+  const missing=[];
+  const doneCount=(S.done[dk]||[]).length;
+  if(doneCount<day.exercises.length) missing.push((day.exercises.length-doneCount)+" oefening(en)");
+  const dc=S.dayCardio[dk]||{};
+  if(!dc.pre) missing.push("cardio voor de training");
+  if(!dc.post) missing.push("cardio na de training");
+  if(!S.daySteps[dk]) missing.push("stappen");
+  return {complete:missing.length===0, missing};
+}
 function dayShareText(p,wk,day){
   const dow=DOWNL[(day.dow||"").toUpperCase()]||day.dow;
   const L=[];
@@ -822,12 +854,21 @@ async function shareDay(p,wk,day){
 function renderDay(a){
   const p=prog(view.pid);const wk=p.weeks.find(x=>x.n===view.w);const day=wk.days[view.d];
   const done=S.done[dayKey(p.id,view.w,view.d)]||[];
+
+  const dcInfo=dayCompleteInfo(p,day);
+  const statusBanner=el("div",dcInfo.complete?"bkok":"bkwarn",
+    dcInfo.complete
+      ? "✓ Dag compleet — alles gelogd, klaar om te delen."
+      : "Nog niet compleet: "+esc(dcInfo.missing.join(", "))+".");
+  statusBanner.style.marginBottom="14px";
+  a.appendChild(statusBanner);
+
   const l=el("div","exlist");
   day.exercises.forEach((ex,i)=>{
     const c=el("button","ex"+(done.includes(i)?" done":""));
     const presc=(ex.sets? (ex.reps? ex.sets+" × "+ex.reps : ex.sets+" werksets") : (ex.reps? ex.reps+" reps":"—"))
       +(ex.rpe?"  ·  RPE "+ex.rpe:"");
-    const hist=(S.log[dayKey(p.id,view.w,view.d)+":"+i]||[]);
+    const hist=historyForExercise(ex,dayKey(p.id,view.w,view.d)+":"+i);
     const last=hist.length?hist[hist.length-1]:null;
     const lastTxt=last?`vorige keer: ${last.sets.map(s=>fmt(s.w)+"×"+s.r).join("  ")}`:"nog niet gelogd";
     c.innerHTML=`<div class="top">
@@ -888,7 +929,7 @@ let sheetState=null;
 function openEx(ex,idx){
   const p=prog(view.pid);
   const lk=dayKey(p.id,view.w,view.d)+":"+idx;
-  const hist=S.log[lk]||[];const last=hist.length?hist[hist.length-1]:null;
+  const hist=historyForExercise(ex,lk);const last=hist.length?hist[hist.length-1]:null;
   const nSets=ex.sets||3;
   sheetState={ex,idx,lk,rows:Array.from({length:nSets},(_,i)=>({
     w:last&&last.sets[i]?last.sets[i].w:"", r:last&&last.sets[i]?last.sets[i].r:(ex.reps&&/^\d+$/.test(ex.reps)?ex.reps:"")
@@ -941,7 +982,8 @@ function drawEx(){
   inr.appendChild(sr);
   const done=el("button","btn","Ronde afronden");done.onclick=finishEx;inr.appendChild(done);
 
-  const hist=(S.log[lk]||[]).slice(-8).reverse();
+  const histAll=historyForExercise(ex,lk);
+  const hist=histAll.slice(-8).reverse();
   const hb=el("div","subsec");hb.appendChild(el("span","eyebrow","Vorige sessies"));
   const hw=el("div","hist");
   if(!hist.length)hw.appendChild(el("div","empty","Nog niets gelogd."));
@@ -979,7 +1021,9 @@ function finishEx(){
     toast(bw?"Vul minstens één set met herhalingen in.":"Vul gewicht én herhalingen in voor minstens één set.");
     return;
   }
-  const hist=S.log[lk]||[];const prev=hist.length?hist[hist.length-1]:null;
+  const hist=S.log[lk]||[];
+  const prevSrc=hist.length?hist:historyForExercise(ex,lk);
+  const prev=prevSrc.length?prevSrc[prevSrc.length-1]:null;
   S.log[lk]=hist;
   hist.push({date:new Date().toLocaleDateString("nl-NL",{day:"2-digit",month:"short"}),ts:Date.now(),sets});
   const dk=dayKey(p.id,view.w,view.d);
@@ -1045,6 +1089,11 @@ function drawCardio(){
   nt.oninput=()=>c.note=nt.value;inr.appendChild(nt);
   const b=el("button","btn","Opslaan");b.style.marginTop="10px";
   b.onclick=()=>{
+    const missing=[];
+    if(c.min===""||c.min==null) missing.push("minuten");
+    if(c.hr===""||c.hr==null) missing.push("hartslag");
+    if(c.rpe===""||c.rpe==null) missing.push("RPE");
+    if(missing.length){ toast("Vul ook in: "+missing.join(", ")); return; }
     const entry={date:new Date().toLocaleDateString("nl-NL",{day:"2-digit",month:"short"}),ts:Date.now(),
       type:c.type,min:c.min||0,hr:c.hr||"",rpe:c.rpe||"",note:c.note||""};
     if(cfg.onSave){cfg.onSave(entry)} else {S.cardio.push(entry)}
