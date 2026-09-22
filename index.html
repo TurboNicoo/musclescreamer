@@ -76,10 +76,15 @@
   .hero h1 em{font-style:normal;color:var(--amber)}
   .hero p{color:var(--muted);margin-top:10px;max-width:40ch;font-size:14.5px}
 
-  .rack{margin:6px 2px 4px}
-  .plates{position:relative;display:flex;align-items:center;justify-content:space-between;gap:7px;padding:6px 2px}
-  .plates::before{content:"";position:absolute;left:-4px;right:-4px;top:50%;height:4px;
-    background:var(--hairline);border-radius:999px;transform:translateY(-50%);z-index:0}
+  .welcome{margin:26px 2px 16px}
+  .welcome h1{font-size:clamp(26px,7vw,32px)}
+  .welcome p{color:var(--muted);margin-top:6px;font-size:14px}
+  .welcome p b{color:var(--ink);font-weight:700}
+
+  .homerow{display:flex;gap:14px;align-items:flex-start;margin-bottom:14px}
+  .proggrail{flex:none;width:52px;position:relative;display:flex;flex-direction:column;align-items:center;gap:11px;padding:6px 0}
+  .proggrail::before{content:"";position:absolute;top:0;bottom:0;left:50%;width:4px;
+    background:var(--hairline);border-radius:999px;transform:translateX(-50%);z-index:0}
   .plate{position:relative;z-index:1;flex:none;border-radius:50%;border:2.5px solid var(--hairline);
     background:var(--surface);box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;
     font-family:"IBM Plex Mono";font-weight:600;font-size:11px;color:var(--faint);transition:transform .12s ease}
@@ -87,7 +92,8 @@
   .plate.done{background:var(--teal);border-color:var(--teal);color:#fff}
   .plate.active{background:var(--amber);border-color:var(--amber);color:#fff;
     box-shadow:0 0 0 4px var(--amber-soft),var(--shadow)}
-  .rackcap{margin:10px 2px 0}
+  .homemain{flex:1;min-width:0}
+  .card.maincard{border-color:var(--amber);border-width:1.5px}
 
   .list{display:flex;flex-direction:column;gap:12px}
   .card{position:relative;display:block;width:100%;text-align:left;background:var(--surface);
@@ -444,6 +450,23 @@ function firstOpenWeek(p){
   for(const wk of (p.weeks||[])) if(!weekDone(p.id,wk.n)) return wk.n;
   return (p.weeks&&p.weeks.length)?p.weeks[p.weeks.length-1].n:1;
 }
+function firstOpenDay(p){
+  const w=firstOpenWeek(p);
+  const wk=(p.weeks||[]).find(x=>x.n===w);
+  if(!wk||!wk.days.length) return {w,d:0};
+  let d=wk.days.findIndex((day,i)=>dayProgress(p.id,w,i)<100);
+  if(d<0) d=0;
+  return {w,d};
+}
+function activeProgramId(){
+  if(S.activeProg && prog(S.activeProg)) return S.activeProg;
+  const doneFlags=DATA.programs.map(p=>{
+    const hasW=(p.weeks||[]).length>0;
+    return hasW && weekDone(p.id,(p.weeks[p.weeks.length-1]).n);
+  });
+  const idx=doneFlags.findIndex(d=>!d);
+  return DATA.programs[idx>=0?idx:DATA.programs.length-1].id;
+}
 
 /* ---------- router ---------- */
 function render(){renderBar();const a=$("#app");a.innerHTML="";
@@ -496,50 +519,58 @@ function renderBar(){
 function renderStart(a){
   a.appendChild(el("div","hero",`<div class="eyebrow">Eigen basis · daarna John Meadows · Mountain Dog 2.0</div>
     <h1>Zeven programma's.<br><em>${TOTW} weken</em> plan.</h1>
-    <p>Volg de programma's op volgorde: eerst je eigen 13-weekse basisblok, daarna zes Mountain Dog 2.0-methodieken. Elke oefening met uitvoering, rust en gewichtsopbouw.</p>`));
+    <p>Elke oefening met uitvoering, rust en gewichtsopbouw — precies zoals in de methode beschreven.</p>`));
 
-  // loaded-bar overview: one plate per programma, size = weken, kleur = status
+  const activeId=activeProgramId();
+  const active=prog(activeId);
   const doneFlags=DATA.programs.map(p=>{
     const hasW=(p.weeks||[]).length>0;
     return hasW && weekDone(p.id,(p.weeks[p.weeks.length-1]).n);
   });
-  const activeIdx=doneFlags.findIndex(d=>!d);
   const wVals=DATA.programs.map(p=>p.weeksN||1);
   const wMin=Math.min(...wVals), wMax=Math.max(...wVals);
-  const rack=el("div","rack");
-  const plates=el("div","plates");
+
+  a.appendChild(el("div","welcome",
+    `<h1>Welkom terug.</h1><p>Je bent bezig met <b>${esc(active.name)}</b> — kies links een ander programma als je wilt wisselen.</p>`));
+
+  const homerow=el("div","homerow");
+  const grail=el("div","proggrail");
   DATA.programs.forEach((p,i)=>{
-    const done=doneFlags[i], active=i===activeIdx;
-    const sz=Math.round(20 + ((p.weeksN||1)-wMin)/Math.max(1,(wMax-wMin))*16);
-    const pl=el("button","plate"+(done?" done":"")+(active?" active":""), String(i+1));
+    const done=doneFlags[i], isActive=p.id===activeId;
+    const sz=Math.round(22 + ((p.weeksN||1)-wMin)/Math.max(1,(wMax-wMin))*16);
+    const pl=el("button","plate"+(done?" done":"")+(isActive?" active":""), String(i+1));
     pl.style.width=sz+"px"; pl.style.height=sz+"px";
-    pl.title=p.name+" · "+p.weeksN+" weken"+(done?" · afgerond":active?" · actief":"");
-    pl.setAttribute("aria-label",p.name+", "+p.weeksN+" weken"+(done?", afgerond":active?", actief":""));
-    pl.onclick=()=>{S.lastProg=p.id;save();go({name:"prog",pid:p.id,w:firstOpenWeek(p)})};
-    plates.appendChild(pl);
+    pl.title=p.name+" · "+p.weeksN+" weken"+(done?" · afgerond":isActive?" · huidig":"");
+    pl.setAttribute("aria-label","Kies "+p.name+" als huidig programma");
+    pl.onclick=()=>{S.activeProg=p.id;save();render()};
+    grail.appendChild(pl);
   });
-  rack.appendChild(plates);
-  a.appendChild(rack);
-  a.appendChild(el("div","empty rackcap","Grootte van de schijf = aantal weken · tik om te openen"));
+  homerow.appendChild(grail);
+
+  const homemain=el("div","homemain");
+  const hasW=(active.weeks||[]).length>0;
+  let status = !hasW ? "Methode — weken volgen"
+    : (weekDone(active.id,(active.weeks[active.weeks.length-1]).n) ? "Afgerond" : "Week "+firstOpenWeek(active)+" / "+active.weeksN);
+  const mc=el("button","card maincard");
+  mc.innerHTML=`<span class="rail"></span><div class="go">${ic.chev}</div>
+    <div class="ord">JE HUIDIGE PROGRAMMA</div>
+    <h2>${esc(active.name)}</h2>
+    <div class="sub">${esc(active.focus)}</div>
+    <div class="meta">
+      <span class="chip hot">${active.weeksN} weken</span>
+      <span class="chip">${esc(active.styleTag)}</span>
+      <span class="chip cool">${esc(status)}</span>
+    </div>`;
+  mc.onclick=()=>{
+    S.lastProg=active.id;S.activeProg=active.id;save();
+    if(hasW){const {w,d}=firstOpenDay(active);go({name:"day",pid:active.id,w,d})}
+    else{go({name:"prog",pid:active.id,w:1})}
+  };
+  homemain.appendChild(mc);
+  homerow.appendChild(homemain);
+  a.appendChild(homerow);
 
   const list=el("div","list");
-  DATA.programs.forEach((p,i)=>{
-    const c=el("button","card");
-    const hasW=(p.weeks||[]).length>0;
-    let status = !hasW ? "Methode — weken volgen"
-      : (weekDone(p.id,(p.weeks[p.weeks.length-1]).n) ? "Afgerond" : "Week "+firstOpenWeek(p)+" / "+p.weeksN);
-    c.innerHTML=`<span class="rail"></span><div class="go">${ic.chev}</div>
-      <div class="ord">PROGRAMMA ${i+1}</div>
-      <h2>${esc(p.name)}</h2>
-      <div class="sub">${esc(p.focus)}</div>
-      <div class="meta">
-        <span class="chip hot">${p.weeksN} weken</span>
-        <span class="chip">${esc(p.styleTag)}</span>
-        <span class="chip cool">${esc(status)}</span>
-      </div>`;
-    c.onclick=()=>{S.lastProg=p.id;save();go({name:"prog",pid:p.id,w:firstOpenWeek(p)})};
-    list.appendChild(c);
-  });
   // cardio card
   const cc=el("button","card cardio");
   const cnt=cardioThisWeek();
