@@ -381,9 +381,10 @@ function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");cl
 
 function prog(id){return DATA.programs.find(p=>p.id===id)}
 function dayKey(pid,w,d){return pid+":"+w+":"+d}
+function cap1(s){return s?s.charAt(0).toUpperCase()+s.slice(1):s}
 function supersetParts(name){
   const m=/^(.+?)\s+superset with\s+(.+)$/i.exec(name||"");
-  return m?[m[1].trim(),m[2].trim()]:null;
+  return m?[cap1(m[1].trim()),cap1(m[2].trim())]:null;
 }
 function historyForExercise(ex,lk){
   const own=S.log[lk]||[];
@@ -895,7 +896,7 @@ function renderDay(a){
     const partsPrev=supersetParts(ex.name);
     const lastTxt=last
       ? (partsPrev&&last.sets2
-          ? `vorige keer: ${last.sets.map(s=>fmt(s.w)+"×"+s.r).join(" ")} / ${last.sets2.map(s=>fmt(s.w)+"×"+s.r).join(" ")}`
+          ? `vorige keer — ${partsPrev[0]}: ${last.sets.map(s=>fmt(s.w)+"×"+s.r).join(" ")} · ${partsPrev[1]}: ${last.sets2.map(s=>fmt(s.w)+"×"+s.r).join(" ")}`
           : `vorige keer: ${last.sets.map(s=>fmt(s.w)+"×"+s.r).join("  ")}`)
       : "nog niet gelogd";
     c.innerHTML=`<div class="top">
@@ -1002,9 +1003,14 @@ function drawEx(){
     b.innerHTML=`<a class="vidlink" href="${esc(ex.video)}" target="_blank" rel="noopener">${ic.play} Instructievideo (John Meadows)</a>`;
     inr.appendChild(b)}
 
-  const buildRows=(rows,label)=>{
+  const buildRows=(rows,eyebrowTxt,titleTxt)=>{
     const sr=el("div","setrows");sr.style.marginTop="18px";
-    sr.appendChild(el("div","eyebrow",label));
+    sr.appendChild(el("div","eyebrow",eyebrowTxt));
+    if(titleTxt){
+      const t=el("div",null,esc(titleTxt));
+      t.style.cssText="font-family:'Archivo';font-weight:700;font-size:15px;margin:3px 0 10px;color:var(--ink)";
+      sr.appendChild(t);
+    }
     rows.forEach((row,i)=>{const r=el("div","setrow");
       r.appendChild(el("div","lab","Set "+(i+1)));
       r.appendChild(stepField(row,"w","kg",2.5,i));
@@ -1013,10 +1019,10 @@ function drawEx(){
     return sr;
   };
   if(parts){
-    inr.appendChild(buildRows(rowsA,"Loggen — "+parts[0]));
-    inr.appendChild(buildRows(rowsB,"Loggen — "+parts[1]));
+    inr.appendChild(buildRows(rowsA,"Loggen 1/2",parts[0]));
+    inr.appendChild(buildRows(rowsB,"Loggen 2/2",parts[1]));
   } else {
-    inr.appendChild(buildRows(rowsA,"Loggen"));
+    inr.appendChild(buildRows(rowsA,"Loggen",null));
   }
   const done=el("button","btn","Ronde afronden");done.onclick=finishEx;inr.appendChild(done);
 
