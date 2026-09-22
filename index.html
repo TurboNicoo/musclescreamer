@@ -322,7 +322,7 @@ async function initCloud(){
 initCloud();
 
 const TOTW=DATA.programs.reduce((a,p)=>a+((p.weeks&&p.weeks.length)||p.weeksN||0),0);
-let view={name:"start"};
+let view=(S.view&&typeof S.view==="object")?S.view:{name:"start"};
 const $=(s,e=document)=>e.querySelector(s);
 const el=(t,c,h)=>{const n=document.createElement(t);if(c)n.className=c;if(h!=null)n.innerHTML=h;return n};
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -381,6 +381,10 @@ function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");cl
 
 function prog(id){return DATA.programs.find(p=>p.id===id)}
 function dayKey(pid,w,d){return pid+":"+w+":"+d}
+function supersetParts(name){
+  const m=/^(.+?)\s+superset with\s+(.+)$/i.exec(name||"");
+  return m?[m[1].trim(),m[2].trim()]:null;
+}
 function historyForExercise(ex,lk){
   const own=S.log[lk]||[];
   if(own.length) return own;
@@ -418,8 +422,14 @@ function firstOpenWeek(p){
 
 /* ---------- router ---------- */
 function render(){renderBar();const a=$("#app");a.innerHTML="";
-  ({start:renderStart,prog:renderProg,day:renderDay,cardio:renderCardio,report:renderReport}[view.name]||renderStart)(a);}
-function go(v){view=v;window.scrollTo(0,0);render()}
+  try{
+    ({start:renderStart,prog:renderProg,day:renderDay,cardio:renderCardio,report:renderReport}[view.name]||renderStart)(a);
+  }catch(e){
+    view={name:"start"};S.view=view;writeLS();
+    a.innerHTML="";renderBar();renderStart(a);
+  }
+}
+function go(v){view=v;S.view=v;writeLS();window.scrollTo(0,0);render()}
 
 const SYNC_UI={
   local:["⤓","alleen dit toestel"], ok:["☁︎","gesynct"], saving:["↻","synct…"],
@@ -551,6 +561,7 @@ function weekStats(off){
           workouts.add(p.id+":"+w.n+":"+di);
           const last=cur[cur.length-1];
           last.sets.forEach(s=>{ if(s.r>0){sets++;reps+=s.r;volume+=(s.w||0)*s.r;} });
+          if(last.sets2) last.sets2.forEach(s=>{ if(s.r>0){sets++;reps+=s.r;volume+=(s.w||0)*s.r;} });
           // compare to the most recent session BEFORE this week
           const prev=hist.filter(h=>(h.ts||0)<lo).pop();
           if(prev){
@@ -816,13 +827,24 @@ function dayShareText(p,wk,day){
     L.push(`${i+1}. ${ex.name} — ${ex.muscle||"?"} (${eqName(ex.equip)})`);
     const presc=[ex.sets?ex.sets+" sets":"", ex.reps?ex.reps+" reps":"", ex.rpe?"RPE "+ex.rpe:"", ex.rest?"rust "+ex.rest:"", ex.goal||""].filter(Boolean).join(" · ");
     if(presc) L.push(`   Voorgeschreven: ${presc}`);
+    const partsShare=supersetParts(ex.name);
     if(last){
       loggedCount++;
-      const setsTxt=last.sets.map(s=>fmt(s.w)+"kg×"+s.r).join(", ");
-      L.push(`   Gelogd (${last.date}): ${setsTxt}`);
+      if(partsShare&&last.sets2){
+        L.push(`   Gelogd (${last.date}) — ${partsShare[0]}: ${last.sets.map(s=>fmt(s.w)+"kg×"+s.r).join(", ")}`);
+        L.push(`   Gelogd (${last.date}) — ${partsShare[1]}: ${last.sets2.map(s=>fmt(s.w)+"kg×"+s.r).join(", ")}`);
+        last.sets2.forEach(s=>{ if(s.r>0){ totalVolume+=(s.w||0)*s.r; totalSets++; } });
+      } else {
+        L.push(`   Gelogd (${last.date}): ${last.sets.map(s=>fmt(s.w)+"kg×"+s.r).join(", ")}`);
+      }
       last.sets.forEach(s=>{ if(s.r>0){ totalVolume+=(s.w||0)*s.r; totalSets++; } });
       if(prevSess){
-        L.push(`   Vorige keer (${prevSess.date}): ${prevSess.sets.map(s=>fmt(s.w)+"kg×"+s.r).join(", ")}`);
+        if(partsShare&&prevSess.sets2){
+          L.push(`   Vorige keer (${prevSess.date}) — ${partsShare[0]}: ${prevSess.sets.map(s=>fmt(s.w)+"kg×"+s.r).join(", ")}`);
+          L.push(`   Vorige keer (${prevSess.date}) — ${partsShare[1]}: ${prevSess.sets2.map(s=>fmt(s.w)+"kg×"+s.r).join(", ")}`);
+        } else {
+          L.push(`   Vorige keer (${prevSess.date}): ${prevSess.sets.map(s=>fmt(s.w)+"kg×"+s.r).join(", ")}`);
+        }
       }
     } else {
       L.push("   Niet gelogd.");
@@ -870,7 +892,12 @@ function renderDay(a){
       +(ex.rpe?"  ·  RPE "+ex.rpe:"");
     const hist=historyForExercise(ex,dayKey(p.id,view.w,view.d)+":"+i);
     const last=hist.length?hist[hist.length-1]:null;
-    const lastTxt=last?`vorige keer: ${last.sets.map(s=>fmt(s.w)+"×"+s.r).join("  ")}`:"nog niet gelogd";
+    const partsPrev=supersetParts(ex.name);
+    const lastTxt=last
+      ? (partsPrev&&last.sets2
+          ? `vorige keer: ${last.sets.map(s=>fmt(s.w)+"×"+s.r).join(" ")} / ${last.sets2.map(s=>fmt(s.w)+"×"+s.r).join(" ")}`
+          : `vorige keer: ${last.sets.map(s=>fmt(s.w)+"×"+s.r).join("  ")}`)
+      : "nog niet gelogd";
     c.innerHTML=`<div class="top">
         <span class="eqi">${eqIcon(ex.equip)}</span>
         <div class="nmwrap"><div class="nm">${esc(ex.name)}</div><div class="mus">${esc(ex.muscle||"")}</div></div>
@@ -931,9 +958,12 @@ function openEx(ex,idx){
   const lk=dayKey(p.id,view.w,view.d)+":"+idx;
   const hist=historyForExercise(ex,lk);const last=hist.length?hist[hist.length-1]:null;
   const nSets=ex.sets||3;
-  sheetState={ex,idx,lk,rows:Array.from({length:nSets},(_,i)=>({
-    w:last&&last.sets[i]?last.sets[i].w:"", r:last&&last.sets[i]?last.sets[i].r:(ex.reps&&/^\d+$/.test(ex.reps)?ex.reps:"")
-  }))};
+  const parts=supersetParts(ex.name);
+  const mkRows=(key)=>Array.from({length:nSets},(_,i)=>({
+    w:last&&last[key]&&last[key][i]?last[key][i].w:"",
+    r:last&&last[key]&&last[key][i]?last[key][i].r:(ex.reps&&/^\d+$/.test(ex.reps)?ex.reps:"")
+  }));
+  sheetState={ex,idx,lk,parts,rowsA:mkRows("sets"),rowsB:parts?mkRows("sets2"):null};
   const host=$("#sheetHost");host.innerHTML="";
   const sc=el("div","scrim");sc.onclick=closeSheet;
   const sh=el("div","sheet");sh.setAttribute("role","dialog");sh.setAttribute("aria-modal","true");
@@ -945,7 +975,7 @@ function openEx(ex,idx){
 function closeSheet(){const sh=$(".sheet"),sc=$(".scrim");if(sh)sh.classList.remove("show");if(sc)sc.classList.remove("show");
   setTimeout(()=>{$("#sheetHost").innerHTML="";sheetState=null},240)}
 function drawEx(){
-  const {ex,idx,lk,rows}=sheetState;const p=prog(view.pid);
+  const {ex,idx,lk,parts,rowsA,rowsB}=sheetState;const p=prog(view.pid);
   const wk=p.weeks.find(x=>x.n===view.w);const day=wk.days[view.d];
   const inr=$(".sheet-in");inr.innerHTML="";
   inr.appendChild(el("div","eyebrow",`Week ${view.w} · ${esc(DOWNL[(day.dow||"").toUpperCase()]||day.dow)} · ${esc(ex.muscle||"")}`));
@@ -972,23 +1002,36 @@ function drawEx(){
     b.innerHTML=`<a class="vidlink" href="${esc(ex.video)}" target="_blank" rel="noopener">${ic.play} Instructievideo (John Meadows)</a>`;
     inr.appendChild(b)}
 
-  const sr=el("div","setrows");sr.style.marginTop="18px";
-  sr.appendChild(el("div","eyebrow","Loggen"));
-  rows.forEach((row,i)=>{const r=el("div","setrow");
-    r.appendChild(el("div","lab","Set "+(i+1)));
-    r.appendChild(stepField(row,"w","kg",2.5,i));
-    r.appendChild(stepField(row,"r","reps",1,i));
-    sr.appendChild(r)});
-  inr.appendChild(sr);
+  const buildRows=(rows,label)=>{
+    const sr=el("div","setrows");sr.style.marginTop="18px";
+    sr.appendChild(el("div","eyebrow",label));
+    rows.forEach((row,i)=>{const r=el("div","setrow");
+      r.appendChild(el("div","lab","Set "+(i+1)));
+      r.appendChild(stepField(row,"w","kg",2.5,i));
+      r.appendChild(stepField(row,"r","reps",1,i));
+      sr.appendChild(r)});
+    return sr;
+  };
+  if(parts){
+    inr.appendChild(buildRows(rowsA,"Loggen — "+parts[0]));
+    inr.appendChild(buildRows(rowsB,"Loggen — "+parts[1]));
+  } else {
+    inr.appendChild(buildRows(rowsA,"Loggen"));
+  }
   const done=el("button","btn","Ronde afronden");done.onclick=finishEx;inr.appendChild(done);
 
+  const setsTxt=s=>fmt(s.w)+"×"+s.r;
   const histAll=historyForExercise(ex,lk);
   const hist=histAll.slice(-8).reverse();
   const hb=el("div","subsec");hb.appendChild(el("span","eyebrow","Vorige sessies"));
   const hw=el("div","hist");
   if(!hist.length)hw.appendChild(el("div","empty","Nog niets gelogd."));
-  hist.forEach(h=>hw.appendChild(el("div","hrow",
-    `<span class="d">${esc(h.date)}</span><span>${h.sets.map(s=>fmt(s.w)+"×"+s.r).join("  ")}</span>`)));
+  hist.forEach(h=>{
+    const line=parts&&h.sets2
+      ? `${parts[0]}: ${h.sets.map(setsTxt).join(" ")}  ·  ${parts[1]}: ${h.sets2.map(setsTxt).join(" ")}`
+      : h.sets.map(setsTxt).join("  ");
+    hw.appendChild(el("div","hrow",`<span class="d">${esc(h.date)}</span><span>${esc(line)}</span>`));
+  });
   hb.appendChild(hw);inr.appendChild(hb);
 
   const nk=p.id+":"+slug(ex.name);
@@ -1005,8 +1048,7 @@ function stepField(obj,prop,suf,step,rowIdx){
   const dec=el("button",null,decIc),inp=el("input"),inc=el("button",null,incIc);
   inp.type="text";inp.inputMode="decimal";
   inp.value=obj[prop]===""||obj[prop]==null?"":fmt(obj[prop]);
-  const set=v=>{obj[prop]=v===""?"":parseNum(v);inp.value=obj[prop]===""?"":fmt(obj[prop]);
-    if(rowIdx>=0&&sheetState)sheetState.rows[rowIdx][prop]=obj[prop]};
+  const set=v=>{obj[prop]=v===""?"":parseNum(v);inp.value=obj[prop]===""?"":fmt(obj[prop])};
   dec.onclick=()=>{const c=obj[prop]===""||obj[prop]==null?0:parseNum(obj[prop]);set(Math.max(0,Math.round((c-step)*100)/100))};
   inc.onclick=()=>{const c=obj[prop]===""||obj[prop]==null?0:parseNum(obj[prop]);set(Math.round((c+step)*100)/100)};
   inp.onchange=()=>set(inp.value);inp.onblur=()=>set(inp.value);
@@ -1014,26 +1056,33 @@ function stepField(obj,prop,suf,step,rowIdx){
   return f;
 }
 function finishEx(){
-  const {ex,idx,lk,rows}=sheetState;const p=prog(view.pid);
-  const sets=rows.map(r=>({w:r.w===""?0:parseNum(r.w),r:r.r===""?0:parseNum(r.r)}));
+  const {ex,idx,lk,parts,rowsA,rowsB}=sheetState;const p=prog(view.pid);
+  const toSets=rows=>rows.map(r=>({w:r.w===""?0:parseNum(r.w),r:r.r===""?0:parseNum(r.r)}));
+  const setsA=toSets(rowsA);
+  const setsB=rowsB?toSets(rowsB):null;
   const bw=ex.equip==="bodyweight";
-  if(!sets.some(s=>s.r>0&&(bw||s.w>0))){
-    toast(bw?"Vul minstens één set met herhalingen in.":"Vul gewicht én herhalingen in voor minstens één set.");
+  const validA=setsA.some(s=>s.r>0&&(bw||s.w>0));
+  const validB=!setsB||setsB.some(s=>s.r>0&&(bw||s.w>0));
+  if(!validA||!validB){
+    const who=parts?(!validA?" voor "+parts[0]:" voor "+parts[1]):"";
+    toast((bw?"Vul minstens één set met herhalingen in":"Vul gewicht én herhalingen in voor minstens één set")+who+".");
     return;
   }
   const hist=S.log[lk]||[];
   const prevSrc=hist.length?hist:historyForExercise(ex,lk);
   const prev=prevSrc.length?prevSrc[prevSrc.length-1]:null;
   S.log[lk]=hist;
-  hist.push({date:new Date().toLocaleDateString("nl-NL",{day:"2-digit",month:"short"}),ts:Date.now(),sets});
+  const entry={date:new Date().toLocaleDateString("nl-NL",{day:"2-digit",month:"short"}),ts:Date.now(),sets:setsA};
+  if(setsB) entry.sets2=setsB;
+  hist.push(entry);
   const dk=dayKey(p.id,view.w,view.d);
   S.done[dk]=S.done[dk]||[];if(!S.done[dk].includes(idx))S.done[dk].push(idx);
   save();closeSheet();render();
   let msg="Opgeslagen.";
   if(prev){
-    const pb=Math.max(...prev.sets.map(s=>s.w||0)),nb=Math.max(...sets.map(s=>s.w||0));
+    const pb=Math.max(...prev.sets.map(s=>s.w||0)),nb=Math.max(...setsA.map(s=>s.w||0));
     if(nb>pb)msg=`Zwaarder dan vorige keer (+${fmt(nb-pb)} kg). 💪`;
-    else if(nb===pb){const pr=prev.sets.reduce((a,s)=>a+(s.r||0),0),nr=sets.reduce((a,s)=>a+(s.r||0),0);
+    else if(nb===pb){const pr=prev.sets.reduce((a,s)=>a+(s.r||0),0),nr=setsA.reduce((a,s)=>a+(s.r||0),0);
       if(nr>pr)msg=`Zelfde gewicht, ${nr-pr} reps meer. Progressie.`;}
   }
   toast(msg);
