@@ -1492,11 +1492,13 @@ render();
 
 const splashEl=$("#splash");
 if(splashEl){
-  if(S.splashSeen){
+  let splashSeenThisSession=false;
+  try{ splashSeenThisSession = sessionStorage.getItem("ms_splash_seen")==="1"; }catch(e){}
+  if(splashSeenThisSession){
     splashEl.remove();
   } else {
     $("#splashGo").onclick=()=>{
-      S.splashSeen=true;save();
+      try{ sessionStorage.setItem("ms_splash_seen","1"); }catch(e){}
       splashEl.classList.add("hide");
       setTimeout(()=>splashEl.remove(),400);
     };
