@@ -1,5 +1,5 @@
 const CACHE = "musclescreamer-v1";
-const ASSETS = ["./", "index.html", "manifest.json", "icon-192.png", "icon-512.png", "icon-512-maskable.png", "splash.jpg"];
+const ASSETS = ["./", "index.html", "manifest.json", "icon-192.png", "icon-512.png", "icon-512-maskable.png", "splash.jpg", "villain-flex.jpg"];
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();

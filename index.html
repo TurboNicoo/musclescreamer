@@ -76,6 +76,22 @@
   .hero h1 em{font-style:normal;color:var(--amber)}
   .hero p{color:var(--muted);margin-top:10px;max-width:40ch;font-size:14.5px}
 
+  .hero{position:relative}
+  .hero .infobtn{position:absolute;top:14px;right:6px;z-index:2;width:34px;height:34px;border-radius:50%;
+    background:rgba(10,4,16,.4);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    display:flex;align-items:center;justify-content:center;color:#fff;border:1px solid rgba(255,255,255,.22)}
+  .hero .infobtn svg{width:16px;height:16px}
+  .hero .infobtn:active{transform:scale(.92)}
+  .heroart{position:relative;margin:0 -16px;overflow:hidden}
+  .heroart img{width:100%;display:block;
+    -webkit-mask-image:radial-gradient(ellipse 72% 85% at 50% 32%,#000 48%,transparent 100%);
+    mask-image:radial-gradient(ellipse 72% 85% at 50% 32%,#000 48%,transparent 100%)}
+  .heroart::before{content:"";position:absolute;inset:0;
+    background:radial-gradient(ellipse 60% 55% at 50% 30%,var(--teal-soft) 0%,transparent 70%);
+    opacity:.35;mix-blend-mode:screen;pointer-events:none}
+  .heroart::after{content:"";position:absolute;inset:0;
+    background:linear-gradient(to bottom,transparent 38%,var(--ground) 92%);pointer-events:none}
+
   .welcome{margin:26px 2px 16px}
   .welcome h1{font-size:clamp(26px,7vw,32px)}
   .welcome p{color:var(--muted);margin-top:6px;font-size:14px}
@@ -582,9 +598,12 @@ function renderBar(){
 
 /* ---------- start ---------- */
 function renderStart(a){
-  a.appendChild(el("div","hero",`<div class="eyebrow">Eigen basis · daarna John Meadows · Mountain Dog 2.0</div>
-    <h1>Zeven programma's.<br><em>${TOTW} weken</em> plan.</h1>
-    <p>Elke oefening met uitvoering, rust en gewichtsopbouw — precies zoals in de methode beschreven.</p>`));
+  const hero=el("div","hero");
+  const infoBtn=el("button","infobtn",ic.info);infoBtn.setAttribute("aria-label","Info over dit plan");
+  infoBtn.onclick=openHeroInfo;
+  hero.appendChild(infoBtn);
+  hero.appendChild(el("div","heroart",`<img src="villain-flex.jpg" alt="">`));
+  a.appendChild(hero);
 
   const activeId=activeProgramId();
   const active=prog(activeId);
@@ -668,6 +687,17 @@ function renderStart(a){
   bkBtn.style.marginTop="18px";
   bkBtn.onclick=openBackup;
   a.appendChild(bkBtn);
+}
+function openHeroInfo(){
+  const host=$("#sheetHost");host.innerHTML="";
+  const sc=el("div","scrim");sc.onclick=closeSheet;
+  const sh=el("div","sheet");sh.appendChild(el("div","grab"));sh.appendChild(el("div","sheet-in"));
+  host.appendChild(sc);host.appendChild(sh);
+  requestAnimationFrame(()=>{sc.classList.add("show");sh.classList.add("show")});
+  const inr=$(".sheet-in");
+  inr.appendChild(el("div","eyebrow","Eigen basis · daarna John Meadows · Mountain Dog 2.0"));
+  inr.appendChild(el("h2",null,`Zeven programma's — ${TOTW} weken plan`));
+  inr.appendChild(el("div","prose","Elke oefening met uitvoering, rust en gewichtsopbouw — precies zoals in de methode beschreven."));
 }
 function weekStart(off){ // Monday 00:00, off=0 this week, 1=last week…
   const n=new Date(); const d=new Date(n);
