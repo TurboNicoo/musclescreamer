@@ -384,28 +384,68 @@ const EQ={
 function eqIcon(k){return (EQ[k]||EQ.machine)[1]}
 function eqName(k){return (EQ[k]||EQ.machine)[0]}
 
-const AB_ROUTINE=[
-  {name:"Hangende beenheffingen",muscle:"Buik — onderbuik & hip flexors",equip:"bodyweight",sets:4,reps:"12-15",rest:"60 sec",
-   howto:"Hang met gestrekte armen aan de stang. Til de benen gestrekt (of met gebogen knieen als dat nog te zwaar is) tot boven horizontaal. Geen swing — de romp blijft stil, de kracht komt puur uit de buik. Laat de benen gecontroleerd zakken tot net voor volledige strekking en herhaal.",
-   notes:["Voel je je onderrug hol trekken? Bouw de range iets terug.","Te makkelijk? Knijp een dumbbell tussen de voeten voor extra weerstand."]},
-  {name:"Kabel crunch (geknield)",muscle:"Buik — bovenste rectus",equip:"cable",sets:4,reps:"15-20",rest:"45 sec",
-   howto:"Kniel voor de kabeltoren met een touw-attachment achter je hoofd. Rond je rug vanuit de ribben naar het bekken toe — niet vanuit de heupen buigen. Knijp de buik hard samen onderin, kom gecontroleerd terug omhoog zonder het gewicht los te laten zakken.",
-   notes:["Dit is de oefening om echt zwaarder te worden — bouw het gewicht rustig op zodra 20 nette reps lukken."]},
-  {name:"Gewogen sit-up (decline)",muscle:"Buik — volledige rectus",equip:"bodyweight",sets:3,reps:"12-15",rest:"60 sec",
-   howto:"Houd een schijf tegen de borst. Kom vanuit de decline positie omhoog door de wervelkolom een voor een op te rollen, niet met een ruk vanuit de heupen. Boven kort knijpen, dan gecontroleerd terug zakken tot net niet plat.",
-   notes:["Voel je dit vooral in de heupbuigers? Ga lichter en focus bewust op het oprollen."]},
-  {name:"Ab wheel rollout",muscle:"Buik — rectus & core-stabiliteit",equip:"bodyweight",sets:3,reps:"10-12",rest:"75 sec",
-   howto:"Begin op de knieen, rol gecontroleerd naar voren tot net voor je onderrug doorzakt. Buik hard aangespannen, adem niet inhouden. Rol terug door de buik samen te trekken, niet door de heupen te duwen.",
-   notes:["Nog te zwaar helemaal uitgerold? Beperk de range tot waar je de vorm vasthoudt en bouw wekelijks verder uit."]},
-  {name:"Weighted Russian twist",muscle:"Buik — obliques (schuine buikspieren)",equip:"dumbbell",sets:3,reps:"20 (10/kant)",rest:"45 sec",
-   howto:"Zit met licht gebogen knieen en leun iets achterover, voeten mogen van de grond. Draai vanuit de romp — niet alleen de armen — van links naar rechts en tik de dumbbell naast de heup.",
-   notes:["Voel je onderrug protesteren? Zet de voeten weer op de grond en verklein de rotatie."]}
+const AB_VARIANT_NAMES=["Kabel & hang-focus","Rotatie & obliques","Stabiliteit & been-focus"];
+const AB_VARIANTS=[
+  [
+    {name:"Hangende beenheffingen",muscle:"Buik — onderbuik & hip flexors",equip:"bodyweight",sets:4,reps:"12-15",rest:"60 sec",
+     howto:"Hang met gestrekte armen aan de stang. Til de benen gestrekt (of met gebogen knieen als dat nog te zwaar is) tot boven horizontaal. Geen swing — de romp blijft stil, de kracht komt puur uit de buik. Laat de benen gecontroleerd zakken tot net voor volledige strekking en herhaal.",
+     notes:["Voel je je onderrug hol trekken? Bouw de range iets terug.","Te makkelijk? Knijp een dumbbell tussen de voeten voor extra weerstand."]},
+    {name:"Kabel crunch (geknield)",muscle:"Buik — bovenste rectus",equip:"cable",sets:4,reps:"15-20",rest:"45 sec",
+     howto:"Kniel voor de kabeltoren met een touw-attachment achter je hoofd. Rond je rug vanuit de ribben naar het bekken toe — niet vanuit de heupen buigen. Knijp de buik hard samen onderin, kom gecontroleerd terug omhoog zonder het gewicht los te laten zakken.",
+     notes:["Dit is de oefening om echt zwaarder te worden — bouw het gewicht rustig op zodra 20 nette reps lukken."]},
+    {name:"Gewogen sit-up (decline)",muscle:"Buik — volledige rectus",equip:"bodyweight",sets:3,reps:"12-15",rest:"60 sec",
+     howto:"Houd een schijf tegen de borst. Kom vanuit de decline positie omhoog door de wervelkolom een voor een op te rollen, niet met een ruk vanuit de heupen. Boven kort knijpen, dan gecontroleerd terug zakken tot net niet plat.",
+     notes:["Voel je dit vooral in de heupbuigers? Ga lichter en focus bewust op het oprollen."]},
+    {name:"Ab wheel rollout",muscle:"Buik — rectus & core-stabiliteit",equip:"bodyweight",sets:3,reps:"10-12",rest:"75 sec",
+     howto:"Begin op de knieen, rol gecontroleerd naar voren tot net voor je onderrug doorzakt. Buik hard aangespannen, adem niet inhouden. Rol terug door de buik samen te trekken, niet door de heupen te duwen.",
+     notes:["Nog te zwaar helemaal uitgerold? Beperk de range tot waar je de vorm vasthoudt en bouw wekelijks verder uit."]},
+    {name:"Weighted Russian twist",muscle:"Buik — obliques (schuine buikspieren)",equip:"dumbbell",sets:3,reps:"20 (10/kant)",rest:"45 sec",
+     howto:"Zit met licht gebogen knieen en leun iets achterover, voeten mogen van de grond. Draai vanuit de romp — niet alleen de armen — van links naar rechts en tik de dumbbell naast de heup.",
+     notes:["Voel je onderrug protesteren? Zet de voeten weer op de grond en verklein de rotatie."]}
+  ],
+  [
+    {name:"Cable woodchopper (hoog naar laag)",muscle:"Buik — obliques & rotatiekracht",equip:"cable",sets:3,reps:"12-15/kant",rest:"60 sec",
+     howto:"Sta zijwaarts naast de katrol, kabel op schouderhoogte. Draai de romp explosief diagonaal naar beneden richting de tegenoverliggende heup, armen blijven relatief gestrekt — de kracht komt uit de rotatie van de romp, niet uit de armen. Keer gecontroleerd terug naar de startpositie.",
+     notes:["Zet de heupen niet te ver mee — de rotatie komt uit de bovenrug/buik, niet uit de onderrug.","Doe evenveel herhalingen aan beide kanten."]},
+    {name:"Hangende windshield wipers",muscle:"Buik — obliques & onderbuik",equip:"bodyweight",sets:3,reps:"8-10/kant",rest:"75 sec",
+     howto:"Hang aan de stang met de benen (gestrekt of gebogen) omhoog gebracht tot horizontaal. Laat de benen samen gecontroleerd naar links zakken, terug naar het midden, dan naar rechts — als een ruitenwisser. De romp blijft stabiel, de beweging komt uit de buik en heupen.",
+     notes:["Nog te zwaar met gestrekte benen? Buig de knieen om de hefboom te verkorten."]},
+    {name:"Side plank met reach",muscle:"Buik — obliques & core-stabiliteit",equip:"bodyweight",sets:3,reps:"12/kant",rest:"45 sec",
+     howto:"Zijwaartse plank op onderarm. Reik met de bovenste arm onder je romp door en weer omhoog, terwijl je de heupen stabiel en omhoog houdt. Laat de heup niet zakken tijdens de beweging.",
+     notes:["Voel je vooral schouder in plaats van buik? Verklein de reikbeweging."]},
+    {name:"Gewogen decline crunch",muscle:"Buik — bovenste rectus",equip:"bodyweight",sets:4,reps:"15-18",rest:"45 sec",
+     howto:"Op de decline bank, schijf tegen de borst. Kom omhoog met een korte crunch-beweging vanuit de ribben — niet volledig zoals een sit-up — en knijp bovenin. Dit isoleert de bovenbuik zwaarder dan de volledige sit-up.",
+     notes:["Kleinere, gecontroleerde range dan de sit-up — dit is bewust een kortere beweging."]},
+    {name:"Staande kabel crunch",muscle:"Buik — volledige rectus, extra belastbaar",equip:"cable",sets:4,reps:"12-15",rest:"60 sec",
+     howto:"Sta voor de hoge katrol met het touw vastgehouden bij het gezicht. Buig vanuit de heupen naar voren en rond de rug, alsof je de knieen met de ellebogen probeert te raken. Kom gecontroleerd terug omhoog.",
+     notes:["Doordat je staat kun je hier vaak zwaarder mee dan bij de geknielde variant — gebruik dat voor progressie."]}
+  ],
+  [
+    {name:"Dead bug met dumbbell",muscle:"Buik — diepe buikspieren & core-stabiliteit",equip:"dumbbell",sets:3,reps:"10/kant",rest:"45 sec",
+     howto:"Lig op je rug, armen gestrekt omhoog met een lichte dumbbell, knieen in 90 graden. Strek afwisselend een been en de tegenoverliggende arm gestrekt naar de grond, zonder dat je onderrug loskomt van de vloer. Terug naar start en wissel.",
+     notes:["De onderrug blijft de hele tijd plat op de grond — dat is belangrijker dan hoe ver je het been strekt."]},
+    {name:"Toes-to-bar",muscle:"Buik — onderbuik, explosief",equip:"bodyweight",sets:3,reps:"8-12",rest:"75 sec",
+     howto:"Hang aan de stang. Til de benen gestrekt explosief op tot de tenen (bijna) de stang raken, met minimale swing. Laat gecontroleerd zakken.",
+     notes:["Nog niet haalbaar? Doe hangende knieheffingen tot de borst als tussenstap."]},
+    {name:"Cable woodchopper (laag naar hoog)",muscle:"Buik — obliques & rotatiekracht (omgekeerde richting)",equip:"cable",sets:3,reps:"12-15/kant",rest:"60 sec",
+     howto:"Kabel laag ingesteld, zijwaarts naast de toren. Trek diagonaal van heuphoogte naar schuin boven je andere schouder, romp draait actief mee. Gecontroleerd terug.",
+     notes:["Dit traint de rotatie in de tegenovergestelde richting van de staande woodchopper — samen dekken ze de hele buikwand."]},
+    {name:"Gewogen plank",muscle:"Buik — volledige core, isometrisch",equip:"bodyweight",sets:3,reps:"45-60 sec vasthouden",rest:"60 sec",
+     howto:"Onderarmplank met een schijf op de onderrug. Lichaam in een rechte lijn van hoofd tot hakken, buik en bilspieren hard aangespannen, adem rustig doorgaan.",
+     notes:["Zakken de heupen? Dan is het gewicht te zwaar of de tijd te lang — bouw op."]},
+    {name:"Lying leg raise met dumbbell",muscle:"Buik — onderbuik",equip:"dumbbell",sets:4,reps:"12-15",rest:"60 sec",
+     howto:"Lig op je rug, klem een lichte dumbbell tussen de voeten. Til de benen gestrekt omhoog tot verticaal, laat gecontroleerd zakken tot net boven de grond zonder de onderrug te ontlasten.",
+     notes:["Onderrug hol? Til de benen minder ver terug naar beneden."]}
+  ]
 ];
 function todayKey(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
-function abLogKey(idx){return "abs:"+idx}
-function abHist(idx){return S.log[abLogKey(idx)]||[]}
-function abDoneTodayFor(idx){const h=abHist(idx);const last=h.length?h[h.length-1]:null;return !!(last&&last.day===todayKey())}
-function abProgress(){const total=AB_ROUTINE.length;let done=0;AB_ROUTINE.forEach((ex,i)=>{if(abDoneTodayFor(i))done++});return {done,total,complete:done===total}}
+function localEpochDay(){const d=new Date();return Math.floor(new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime()/86400000)}
+function abVariantIndex(){return Math.floor(localEpochDay()/2)%AB_VARIANTS.length}
+function abRoutineToday(){return AB_VARIANTS[abVariantIndex()]}
+function abLogKey(ex){return "abs:"+slug(ex.name)}
+function abHist(ex){return S.log[abLogKey(ex)]||[]}
+function abDoneTodayFor(ex){const h=abHist(ex);const last=h.length?h[h.length-1]:null;return !!(last&&last.day===todayKey())}
+function abProgress(){const today=abRoutineToday();const total=today.length;let done=0;today.forEach(ex=>{if(abDoneTodayFor(ex))done++});return {done,total,complete:done===total}}
 function abDoneToday(){return abProgress().complete}
 
 const GOAL_MEANING=[
@@ -958,9 +998,9 @@ function dayShareText(p,wk,day){
   }
   {
     const abP=abProgress();
-    L.push("--- Buikspieren-kwartier vandaag ---");
-    AB_ROUTINE.forEach((ex,i)=>{
-      const h=abHist(i);const last=h.length?h[h.length-1]:null;
+    L.push(`--- Buikspieren-kwartier vandaag (${esc(AB_VARIANT_NAMES[abVariantIndex()])}) ---`);
+    abRoutineToday().forEach(ex=>{
+      const h=abHist(ex);const last=h.length?h[h.length-1]:null;
       const doneT=last&&last.day===todayKey();
       L.push(`${ex.name}: ${doneT?last.sets.map(s=>fmt(s.w)+"kg×"+s.r).join(", "):"niet gedaan"}`);
     });
@@ -1280,11 +1320,14 @@ function renderAbs(a){
       : `Nog niet compleet: ${p.total-p.done} van de ${p.total} oefeningen.`);
   banner.style.marginBottom="14px";
   a.appendChild(banner);
-  a.appendChild(el("div","prose","Vast dagelijks blok van circa 15 minuten — los van je trainingsschema, maar wel elke dag. Bouw waar mogelijk rustig op in gewicht en wissel zelf de intensiteit af, zodat je niet elke dag tot het uiterste gaat."));
+  a.appendChild(el("div","eyebrow",`Vandaag: ${esc(AB_VARIANT_NAMES[abVariantIndex()])} — wisselt elke 2 dagen`));
+  const intro=el("div","prose","Vast dagelijks blok van circa 15 minuten — los van je trainingsschema, maar wel elke dag. De oefeningen wisselen elke twee dagen zodat je buik van meerdere kanten belast wordt. Bouw waar mogelijk rustig op in gewicht en wissel zelf de intensiteit af, zodat je niet elke dag tot het uiterste gaat.");
+  intro.style.marginTop="6px";
+  a.appendChild(intro);
   const l=el("div","exlist");l.style.marginTop="14px";
-  AB_ROUTINE.forEach((ex,i)=>{
-    const doneToday=abDoneTodayFor(i);
-    const hist=abHist(i);
+  abRoutineToday().forEach(ex=>{
+    const doneToday=abDoneTodayFor(ex);
+    const hist=abHist(ex);
     const last=hist.length?hist[hist.length-1]:null;
     const c=el("button","ex"+(doneToday?" done":""));
     const presc=(ex.sets?ex.sets+" × "+ex.reps:ex.reps||"—");
@@ -1294,20 +1337,20 @@ function renderAbs(a){
         <div class="nmwrap"><div class="nm">${esc(ex.name)}</div><div class="mus">${esc(ex.muscle||"")}</div></div>
         <div class="prescr">${esc(presc)}</div></div>
       <div class="last">${doneToday?"● ":"○ "}<b>${esc(lastTxt)}</b></div>`;
-    c.onclick=()=>openAbEx(ex,i);
+    c.onclick=()=>openAbEx(ex);
     l.appendChild(c);
   });
   a.appendChild(l);
 }
-function openAbEx(ex,idx){
-  const hist=abHist(idx);const last=hist.length?hist[hist.length-1]:null;
-  const doneToday=abDoneTodayFor(idx);
+function openAbEx(ex){
+  const hist=abHist(ex);const last=hist.length?hist[hist.length-1]:null;
+  const doneToday=abDoneTodayFor(ex);
   const nSets=ex.sets||3;
   const rows=Array.from({length:nSets},(_,i)=>({
     w:(!doneToday&&last&&last.sets[i])?last.sets[i].w:"",
     r:(!doneToday&&last&&last.sets[i])?last.sets[i].r:(ex.reps&&/^\d+$/.test(ex.reps)?ex.reps:"")
   }));
-  sheetState={abEx:ex,abIdx:idx,rows};
+  sheetState={abEx:ex,rows};
   const host=$("#sheetHost");host.innerHTML="";
   const sc=el("div","scrim");sc.onclick=closeSheet;
   const sh=el("div","sheet");sh.setAttribute("role","dialog");sh.setAttribute("aria-modal","true");
@@ -1317,7 +1360,7 @@ function openAbEx(ex,idx){
   drawAbEx();
 }
 function drawAbEx(){
-  const {abEx:ex,abIdx:idx,rows}=sheetState;
+  const {abEx:ex,rows}=sheetState;
   const inr=$(".sheet-in");inr.innerHTML="";
   inr.appendChild(el("div","eyebrow",`Buikspieren-kwartier · ${esc(ex.muscle||"")}`));
   inr.appendChild(el("h2",null,esc(ex.name)));
@@ -1340,7 +1383,7 @@ function drawAbEx(){
   const done=el("button","btn","Kwartier-onderdeel afronden");done.onclick=finishAbEx;inr.appendChild(done);
 
   const setsTxt=s=>fmt(s.w)+"×"+s.r;
-  const histSh=abHist(idx).slice(-8).reverse();
+  const histSh=abHist(ex).slice(-8).reverse();
   const hb=el("div","subsec");hb.appendChild(el("span","eyebrow","Vorige sessies"));
   const hw=el("div","hist");
   if(!histSh.length)hw.appendChild(el("div","empty","Nog niets gelogd."));
@@ -1348,12 +1391,12 @@ function drawAbEx(){
   hb.appendChild(hw);inr.appendChild(hb);
 }
 function finishAbEx(){
-  const {abEx:ex,abIdx:idx,rows}=sheetState;
+  const {abEx:ex,rows}=sheetState;
   const bw=ex.equip==="bodyweight";
   const sets=rows.map(r=>({w:r.w===""?0:parseNum(r.w),r:r.r===""?0:parseNum(r.r)}));
   const valid=sets.some(s=>s.r>0&&(bw||s.w>0));
   if(!valid){toast(bw?"Vul minstens een set met herhalingen in.":"Vul gewicht en herhalingen in voor minstens een set.");return;}
-  const lk=abLogKey(idx);
+  const lk=abLogKey(ex);
   const hist=S.log[lk]||[];
   S.log[lk]=hist;
   hist.push({date:new Date().toLocaleDateString("nl-NL",{day:"2-digit",month:"short"}),ts:Date.now(),day:todayKey(),sets});
