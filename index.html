@@ -384,6 +384,30 @@ const EQ={
 function eqIcon(k){return (EQ[k]||EQ.machine)[1]}
 function eqName(k){return (EQ[k]||EQ.machine)[0]}
 
+const AB_ROUTINE=[
+  {name:"Hangende beenheffingen",muscle:"Buik — onderbuik & hip flexors",equip:"bodyweight",sets:4,reps:"12-15",rest:"60 sec",
+   howto:"Hang met gestrekte armen aan de stang. Til de benen gestrekt (of met gebogen knieen als dat nog te zwaar is) tot boven horizontaal. Geen swing — de romp blijft stil, de kracht komt puur uit de buik. Laat de benen gecontroleerd zakken tot net voor volledige strekking en herhaal.",
+   notes:["Voel je je onderrug hol trekken? Bouw de range iets terug.","Te makkelijk? Knijp een dumbbell tussen de voeten voor extra weerstand."]},
+  {name:"Kabel crunch (geknield)",muscle:"Buik — bovenste rectus",equip:"cable",sets:4,reps:"15-20",rest:"45 sec",
+   howto:"Kniel voor de kabeltoren met een touw-attachment achter je hoofd. Rond je rug vanuit de ribben naar het bekken toe — niet vanuit de heupen buigen. Knijp de buik hard samen onderin, kom gecontroleerd terug omhoog zonder het gewicht los te laten zakken.",
+   notes:["Dit is de oefening om echt zwaarder te worden — bouw het gewicht rustig op zodra 20 nette reps lukken."]},
+  {name:"Gewogen sit-up (decline)",muscle:"Buik — volledige rectus",equip:"bodyweight",sets:3,reps:"12-15",rest:"60 sec",
+   howto:"Houd een schijf tegen de borst. Kom vanuit de decline positie omhoog door de wervelkolom een voor een op te rollen, niet met een ruk vanuit de heupen. Boven kort knijpen, dan gecontroleerd terug zakken tot net niet plat.",
+   notes:["Voel je dit vooral in de heupbuigers? Ga lichter en focus bewust op het oprollen."]},
+  {name:"Ab wheel rollout",muscle:"Buik — rectus & core-stabiliteit",equip:"bodyweight",sets:3,reps:"10-12",rest:"75 sec",
+   howto:"Begin op de knieen, rol gecontroleerd naar voren tot net voor je onderrug doorzakt. Buik hard aangespannen, adem niet inhouden. Rol terug door de buik samen te trekken, niet door de heupen te duwen.",
+   notes:["Nog te zwaar helemaal uitgerold? Beperk de range tot waar je de vorm vasthoudt en bouw wekelijks verder uit."]},
+  {name:"Weighted Russian twist",muscle:"Buik — obliques (schuine buikspieren)",equip:"dumbbell",sets:3,reps:"20 (10/kant)",rest:"45 sec",
+   howto:"Zit met licht gebogen knieen en leun iets achterover, voeten mogen van de grond. Draai vanuit de romp — niet alleen de armen — van links naar rechts en tik de dumbbell naast de heup.",
+   notes:["Voel je onderrug protesteren? Zet de voeten weer op de grond en verklein de rotatie."]}
+];
+function todayKey(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function abLogKey(idx){return "abs:"+idx}
+function abHist(idx){return S.log[abLogKey(idx)]||[]}
+function abDoneTodayFor(idx){const h=abHist(idx);const last=h.length?h[h.length-1]:null;return !!(last&&last.day===todayKey())}
+function abProgress(){const total=AB_ROUTINE.length;let done=0;AB_ROUTINE.forEach((ex,i)=>{if(abDoneTodayFor(i))done++});return {done,total,complete:done===total}}
+function abDoneToday(){return abProgress().complete}
+
 const GOAL_MEANING=[
   ["explos","Zwaardere oefening: laat het gewicht gecontroleerd zakken en duw het dan explosief omhoog."],
   ["supramax","Jaag een maximale pomp na — korte rustpauzes, en op de laatste werkset vaak een intensiteitstechniek."],
@@ -471,7 +495,7 @@ function activeProgramId(){
 /* ---------- router ---------- */
 function render(){renderBar();const a=$("#app");a.innerHTML="";
   try{
-    ({start:renderStart,prog:renderProg,day:renderDay,cardio:renderCardio,report:renderReport}[view.name]||renderStart)(a);
+    ({start:renderStart,prog:renderProg,day:renderDay,cardio:renderCardio,report:renderReport,abs:renderAbs}[view.name]||renderStart)(a);
   }catch(e){
     view={name:"start"};S.view=view;writeLS();
     a.innerHTML="";renderBar();renderStart(a);
@@ -501,6 +525,7 @@ function renderBar(){
     ctx="Week "+view.w+" · "+(DOWNL[(d.dow||"").toUpperCase()]||d.dow);sub=d.label||p.name;back=()=>go({name:"prog",pid:view.pid,w:view.w})}
   if(view.name==="cardio"){ctx="Ochtend-cardio";sub="Vetverbranding + hart & vaten";back=()=>go({name:"start"})}
   if(view.name==="report"){ctx="Weekrapport";sub="Progressie-overzicht";back=()=>go({name:"start"})}
+  if(view.name==="abs"){ctx="Buikspieren-kwartier";sub="Dagelijks — circa 15 minuten";back=()=>go({name:"start"})}
   const inr=el("div","bar-in");
   if(back){const b=el("button","back",ic.back);b.setAttribute("aria-label","Terug");b.onclick=back;inr.appendChild(b)}
   const ctxHtml = view.name==="start" ? `${BRAND_SVG}<span>${esc(sub)}</span>` : `<b>${esc(ctx)}</b><span>${esc(sub)}</span>`;
@@ -571,6 +596,15 @@ function renderStart(a){
   a.appendChild(homerow);
 
   const list=el("div","list");
+  // buikspieren card
+  const abP=abProgress();
+  const ab=el("button","card abs");
+  ab.innerHTML=`<span class="rail"></span><div class="go">${ic.chev}</div>
+    <div class="ord">ELKE DAG · APART</div><h2>Buikspieren-kwartier</h2>
+    <div class="sub">Vast dagelijks blok van circa 15 minuten voor harde buikspiergroei</div>
+    <div class="meta"><span class="chip ${abP.complete?"cool":"hot"}">${abP.complete?"Vandaag compleet":abP.done+"/"+abP.total+" gedaan vandaag"}</span></div>`;
+  ab.onclick=()=>go({name:"abs"});
+  list.appendChild(ab);
   // cardio card
   const cc=el("button","card cardio");
   const cnt=cardioThisWeek();
@@ -869,6 +903,7 @@ function dayCompleteInfo(p,day){
   if(!dc.pre) missing.push("cardio voor de training");
   if(!dc.post) missing.push("cardio na de training");
   if(!S.daySteps[dk]) missing.push("stappen");
+  if(!abDoneToday()) missing.push("buikspieren-kwartier");
   return {complete:missing.length===0, missing};
 }
 function dayShareText(p,wk,day){
@@ -919,6 +954,17 @@ function dayShareText(p,wk,day){
     if(dc0.pre) L.push(`Cardio voor de training: ${cardioLine(dc0.pre)}`);
     if(dc0.post) L.push(`Cardio na de training: ${cardioLine(dc0.post)}`);
     if(S.daySteps[dk0]) L.push(`Stappen vandaag: ${S.daySteps[dk0]}`);
+    L.push("");
+  }
+  {
+    const abP=abProgress();
+    L.push("--- Buikspieren-kwartier vandaag ---");
+    AB_ROUTINE.forEach((ex,i)=>{
+      const h=abHist(i);const last=h.length?h[h.length-1]:null;
+      const doneT=last&&last.day===todayKey();
+      L.push(`${ex.name}: ${doneT?last.sets.map(s=>fmt(s.w)+"kg×"+s.r).join(", "):"niet gedaan"}`);
+    });
+    L.push(abP.complete?"Buikspieren-kwartier: compleet.":`Buikspieren-kwartier: ${abP.done}/${abP.total} gedaan.`);
     L.push("");
   }
   L.push(`Totaal: ${loggedCount}/${day.exercises.length} oefeningen gelogd · ${totalSets} werksets · ${Math.round(totalVolume)} kg volume`);
@@ -1226,6 +1272,94 @@ function sinceTxt(ts){
   const d=Math.floor((Date.now()-ts)/864e5);
   return d<=0?"vandaag":d===1?"gisteren":d+" dagen geleden";
 }
+function renderAbs(a){
+  const p=abProgress();
+  const banner=el("div",p.complete?"bkok":"bkwarn",
+    p.complete
+      ? "✓ Buikspieren-kwartier compleet voor vandaag."
+      : `Nog niet compleet: ${p.total-p.done} van de ${p.total} oefeningen.`);
+  banner.style.marginBottom="14px";
+  a.appendChild(banner);
+  a.appendChild(el("div","prose","Vast dagelijks blok van circa 15 minuten — los van je trainingsschema, maar wel elke dag. Bouw waar mogelijk rustig op in gewicht en wissel zelf de intensiteit af, zodat je niet elke dag tot het uiterste gaat."));
+  const l=el("div","exlist");l.style.marginTop="14px";
+  AB_ROUTINE.forEach((ex,i)=>{
+    const doneToday=abDoneTodayFor(i);
+    const hist=abHist(i);
+    const last=hist.length?hist[hist.length-1]:null;
+    const c=el("button","ex"+(doneToday?" done":""));
+    const presc=(ex.sets?ex.sets+" × "+ex.reps:ex.reps||"—");
+    const lastTxt=last?`${doneToday?"vandaag":"laatst ("+last.date+")"}: ${last.sets.map(s=>fmt(s.w)+"×"+s.r).join("  ")}`:"nog niet gelogd";
+    c.innerHTML=`<div class="top">
+        <span class="eqi">${eqIcon(ex.equip)}</span>
+        <div class="nmwrap"><div class="nm">${esc(ex.name)}</div><div class="mus">${esc(ex.muscle||"")}</div></div>
+        <div class="prescr">${esc(presc)}</div></div>
+      <div class="last">${doneToday?"● ":"○ "}<b>${esc(lastTxt)}</b></div>`;
+    c.onclick=()=>openAbEx(ex,i);
+    l.appendChild(c);
+  });
+  a.appendChild(l);
+}
+function openAbEx(ex,idx){
+  const hist=abHist(idx);const last=hist.length?hist[hist.length-1]:null;
+  const doneToday=abDoneTodayFor(idx);
+  const nSets=ex.sets||3;
+  const rows=Array.from({length:nSets},(_,i)=>({
+    w:(!doneToday&&last&&last.sets[i])?last.sets[i].w:"",
+    r:(!doneToday&&last&&last.sets[i])?last.sets[i].r:(ex.reps&&/^\d+$/.test(ex.reps)?ex.reps:"")
+  }));
+  sheetState={abEx:ex,abIdx:idx,rows};
+  const host=$("#sheetHost");host.innerHTML="";
+  const sc=el("div","scrim");sc.onclick=closeSheet;
+  const sh=el("div","sheet");sh.setAttribute("role","dialog");sh.setAttribute("aria-modal","true");
+  sh.appendChild(el("div","grab"));sh.appendChild(el("div","sheet-in"));
+  host.appendChild(sc);host.appendChild(sh);
+  requestAnimationFrame(()=>{sc.classList.add("show");sh.classList.add("show")});
+  drawAbEx();
+}
+function drawAbEx(){
+  const {abEx:ex,abIdx:idx,rows}=sheetState;
+  const inr=$(".sheet-in");inr.innerHTML="";
+  inr.appendChild(el("div","eyebrow",`Buikspieren-kwartier · ${esc(ex.muscle||"")}`));
+  inr.appendChild(el("h2",null,esc(ex.name)));
+  inr.appendChild(el("div","eqbig",`<span class="eqi">${eqIcon(ex.equip)}</span><b>Materiaal: <span>${esc(eqName(ex.equip))}</span></b>`));
+  const chips=el("div","chips");
+  [[ (ex.sets?ex.sets+" sets":""),1],[ex.reps?ex.reps+" reps":"",0],["Rust "+(ex.rest||"60 sec"),0]]
+    .forEach(([t,hot])=>{if(t)chips.appendChild(el("span","chip"+(hot?" hot":""),esc(t)))});
+  inr.appendChild(chips);
+  if(ex.howto){const b=el("div","block");b.appendChild(el("span","eyebrow","Uitvoering"));
+    b.appendChild(el("div","prose",esc(ex.howto)));inr.appendChild(b)}
+  if(ex.notes&&ex.notes.length){const b=el("div","block");b.appendChild(el("span","eyebrow","Let op"));
+    const ul=el("ul","cues");ex.notes.forEach(n=>ul.appendChild(el("li",null,esc(n))));b.appendChild(ul);inr.appendChild(b)}
+  const sr=el("div","setrows");sr.style.marginTop="18px";sr.appendChild(el("div","eyebrow","Loggen"));
+  rows.forEach((row,i)=>{const r=el("div","setrow");
+    r.appendChild(el("div","lab","Set "+(i+1)));
+    r.appendChild(stepField(row,"w","kg",2.5,i));
+    r.appendChild(stepField(row,"r","reps",1,i));
+    sr.appendChild(r)});
+  inr.appendChild(sr);
+  const done=el("button","btn","Kwartier-onderdeel afronden");done.onclick=finishAbEx;inr.appendChild(done);
+
+  const setsTxt=s=>fmt(s.w)+"×"+s.r;
+  const histSh=abHist(idx).slice(-8).reverse();
+  const hb=el("div","subsec");hb.appendChild(el("span","eyebrow","Vorige sessies"));
+  const hw=el("div","hist");
+  if(!histSh.length)hw.appendChild(el("div","empty","Nog niets gelogd."));
+  histSh.forEach(h=>hw.appendChild(el("div","hrow",`<span class="d">${esc(h.date)}</span><span>${esc(h.sets.map(setsTxt).join("  "))}</span>`)));
+  hb.appendChild(hw);inr.appendChild(hb);
+}
+function finishAbEx(){
+  const {abEx:ex,abIdx:idx,rows}=sheetState;
+  const bw=ex.equip==="bodyweight";
+  const sets=rows.map(r=>({w:r.w===""?0:parseNum(r.w),r:r.r===""?0:parseNum(r.r)}));
+  const valid=sets.some(s=>s.r>0&&(bw||s.w>0));
+  if(!valid){toast(bw?"Vul minstens een set met herhalingen in.":"Vul gewicht en herhalingen in voor minstens een set.");return;}
+  const lk=abLogKey(idx);
+  const hist=S.log[lk]||[];
+  S.log[lk]=hist;
+  hist.push({date:new Date().toLocaleDateString("nl-NL",{day:"2-digit",month:"short"}),ts:Date.now(),day:todayKey(),sets});
+  save();closeSheet();render();
+  toast(abProgress().complete?"Opgeslagen — buikspieren-kwartier compleet voor vandaag! 🔥":"Opgeslagen.");
+}
 function openBackup(){
   const host=$("#sheetHost");host.innerHTML="";
   const sc=el("div","scrim");sc.onclick=closeSheet;
@@ -1285,10 +1419,15 @@ render();
 
 const splashEl=$("#splash");
 if(splashEl){
-  $("#splashGo").onclick=()=>{
-    splashEl.classList.add("hide");
-    setTimeout(()=>splashEl.remove(),400);
-  };
+  if(S.splashSeen){
+    splashEl.remove();
+  } else {
+    $("#splashGo").onclick=()=>{
+      S.splashSeen=true;save();
+      splashEl.classList.add("hide");
+      setTimeout(()=>splashEl.remove(),400);
+    };
+  }
 }
 
 if("serviceWorker" in navigator){
