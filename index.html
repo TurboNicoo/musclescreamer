@@ -268,6 +268,8 @@
   .hist{display:flex;flex-direction:column;gap:6px}
   .hrow{display:flex;justify-content:space-between;gap:10px;font-family:"IBM Plex Mono";font-size:12px;color:var(--muted);
     padding:8px 10px;background:var(--surface-2);border-radius:9px}
+  .hrow > span{min-width:0;overflow-wrap:break-word}
+  .hrow > span:last-child{text-align:right}
   .hrow .d{color:var(--faint);flex:none}
   .empty{color:var(--faint);font-size:13px;font-family:"IBM Plex Mono";padding:6px 0}
   .bkwarn,.bkok{font-family:"IBM Plex Mono";font-size:11.5px;border-radius:9px;padding:8px 10px;margin-top:8px}
@@ -765,19 +767,31 @@ function suggestProgression(ex,lastSets){
   const maxW=Math.max(0,...valid.map(s=>s.w||0));
   const bw=ex.equip==="bodyweight";
   if(bw){
-    if(minReps>=range.hi) return {type:"up",newWeight:null,text:`Overal ${range.hi}+ herhalingen gehaald — voeg gewicht toe of kies een lastigere variant.`};
-    if(minReps<range.lo) return {type:"hold",newWeight:null,text:`Onderkant van de reeks (${range.lo}) nog niet overal gehaald — zelfde niveau, focus op nette vorm.`};
-    return {type:"reps",newWeight:null,text:`Probeer dit keer meer herhalingen te halen (minimaal ${range.lo}).`};
+    if(minReps>=range.hi) return {type:"up",newWeight:null,
+      text:`Overal ${range.hi}+ herhalingen gehaald — voeg gewicht toe of kies een lastigere variant.`,
+      short:"Voeg gewicht toe"};
+    if(minReps<range.lo) return {type:"hold",newWeight:null,
+      text:`Onderkant van de reeks (${range.lo}) nog niet overal gehaald — zelfde niveau, focus op nette vorm.`,
+      short:"Focus op vorm"};
+    return {type:"reps",newWeight:null,
+      text:`Probeer dit keer meer herhalingen te halen (minimaal ${range.lo}).`,
+      short:`Min. ${range.lo} reps`};
   }
   const step=weightStepFor(ex);
   if(minReps>=range.hi){
     const newW=Math.round((maxW+step)*2)/2;
-    return {type:"up",newWeight:newW,text:`Overal ${range.hi}+ herhalingen gehaald op ${fmt(maxW)} kg — dit keer ${fmt(newW)} kg.`};
+    return {type:"up",newWeight:newW,
+      text:`Overal ${range.hi}+ herhalingen gehaald op ${fmt(maxW)} kg — dit keer ${fmt(newW)} kg.`,
+      short:`${fmt(maxW)} → ${fmt(newW)} kg`};
   }
   if(minReps<range.lo){
-    return {type:"hold",newWeight:maxW,text:`Onderkant van de reeks (${range.lo}) nog niet overal gehaald op ${fmt(maxW)} kg — blijf op dit gewicht.`};
+    return {type:"hold",newWeight:maxW,
+      text:`Onderkant van de reeks (${range.lo}) nog niet overal gehaald op ${fmt(maxW)} kg — blijf op dit gewicht.`,
+      short:`Blijf op ${fmt(maxW)} kg`};
   }
-  return {type:"reps",newWeight:maxW,text:`Blijf op ${fmt(maxW)} kg, probeer de bovenkant van de reeks te halen (${range.hi}).`};
+  return {type:"reps",newWeight:maxW,
+    text:`Blijf op ${fmt(maxW)} kg, probeer de bovenkant van de reeks te halen (${range.hi}).`,
+    short:`${fmt(maxW)} kg · ${range.hi} reps`};
 }
 function weekAdvice(){
   const lo=weekStart(0).getTime(), hi=lo+7*864e5;
@@ -799,8 +813,8 @@ function weekAdvice(){
           const combined=last.sets2?last.sets.concat(last.sets2):last.sets;
           const sugg=suggestProgression(ex,combined);
           if(!sugg) continue;
-          if(sugg.type==="up") up.push({n:ex.name,t:sugg.text});
-          else if(sugg.type==="hold") hold.push({n:ex.name,t:sugg.text});
+          if(sugg.type==="up") up.push({n:ex.name,t:sugg.short});
+          else if(sugg.type==="hold") hold.push({n:ex.name,t:sugg.short});
         }
       }
     }
