@@ -238,6 +238,8 @@
 
   .setrows{display:flex;flex-direction:column;gap:8px;margin:12px 0}
   .setrow{display:grid;grid-template-columns:40px 1fr 1fr;gap:8px;align-items:center}
+  .setrow.wide{grid-template-columns:78px 1fr 1fr}
+  .setrow.wide .lab{white-space:normal;line-height:1.2}
   .setrow .lab{font-family:"IBM Plex Mono";font-size:12px;color:var(--faint)}
   .field{display:flex;align-items:center;background:var(--surface-2);border:1px solid var(--hairline);border-radius:11px;overflow:hidden}
   .field button{width:34px;height:42px;font-size:18px;color:var(--muted);flex:none;display:flex;align-items:center;justify-content:center}
@@ -1321,7 +1323,7 @@ function drawCardio(){
     const b=el("button","seg"+(c.type===t?" on":""),t);b.onclick=()=>{c.type=t;drawCardio()};g.appendChild(b)});
   s1.appendChild(g);inr.appendChild(s1);
   const s2=el("div","setrows");
-  const mk=(lab,obj,prop,suf,step,tailTxt)=>{const r=el("div","setrow");r.appendChild(el("div","lab",lab));
+  const mk=(lab,obj,prop,suf,step,tailTxt)=>{const r=el("div","setrow wide");r.appendChild(el("div","lab",lab));
     r.appendChild(stepField(obj,prop,suf,step,-1));r.appendChild(tailTxt?el("div","lab",tailTxt):el("div"));s2.appendChild(r)};
   mk("Min",c,"min","min",5);
   mk("HR",c,"hr","bpm",1);
