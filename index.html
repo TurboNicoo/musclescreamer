@@ -1018,7 +1018,11 @@ function dayShareText(p,wk,day){
   });
   const dk0=dayKey(p.id,view.w,view.d);
   const dc0=S.dayCardio[dk0]||{};
-  const cardioLine=(e)=>`${e.type} · ${e.min} min${e.hr?" · "+e.hr+" bpm":""}${e.rpe?" · RPE "+e.rpe:""}${e.note?" — "+e.note:""}`;
+  const cardioLine=(e)=>{
+    const sp=(e.speed!==""&&e.speed!=null)?" · "+cardioSpeedLabel(e.type)+" "+e.speed+(cardioSpeedSuffix(e.type)?" "+cardioSpeedSuffix(e.type):""):"";
+    const inc=(e.incline!==""&&e.incline!=null)?" · Helling "+e.incline+"%":"";
+    return `${e.type} · ${e.min} min${e.hr?" · "+e.hr+" bpm":""}${sp}${inc}${e.note?" — "+e.note:""}`;
+  };
   if(dc0.pre||dc0.post||S.daySteps[dk0]){
     L.push("--- Cardio & stappen ---");
     if(dc0.pre) L.push(`Cardio voor de training: ${cardioLine(dc0.pre)}`);
@@ -1284,15 +1288,22 @@ function renderCardio(a){
   if(!S.cardio.length)l.appendChild(el("div","empty","Nog geen cardio gelogd."));
   S.cardio.slice().reverse().slice(0,40).forEach((c,ri)=>{
     const row=el("div","hrow");
-    row.innerHTML=`<span class="d">${esc(c.date)}</span><span>${esc(c.type)} · ${c.min} min${c.hr?" · "+c.hr+" bpm":""}${c.rpe?" · RPE "+c.rpe:""}</span>`;
+    const sp=(c.speed!==""&&c.speed!=null)?" · "+cardioSpeedLabel(c.type)+" "+c.speed+(cardioSpeedSuffix(c.type)?" "+cardioSpeedSuffix(c.type):""):"";
+    const inc=(c.incline!==""&&c.incline!=null)?" · Helling "+c.incline+"%":"";
+    row.innerHTML=`<span class="d">${esc(c.date)}</span><span>${esc(c.type)} · ${c.min} min${c.hr?" · "+c.hr+" bpm":""}${sp}${inc}</span>`;
     l.appendChild(row);
   });
   a.appendChild(l);
 }
+const CARDIO_TYPES=["Fietsen","Lopen","Hardlopen","Crosstrainer"];
+function cardioSpeedLabel(type){return (type==="Fietsen"||type==="Crosstrainer")?"Stand":"Snelheid"}
+function cardioSpeedSuffix(type){return (type==="Fietsen"||type==="Crosstrainer")?"":"km/u"}
+function cardioSpeedStep(type){return (type==="Fietsen"||type==="Crosstrainer")?1:0.5}
+function cardioHasIncline(type){return type==="Lopen"||type==="Hardlopen"}
 function openCardio(cfg){
   cfg=cfg||{};
   const init=cfg.initial||{};
-  sheetState={cardio:{type:init.type||"Zone 2 (LISS)",min:init.min!=null?init.min:30,hr:init.hr||"",rpe:init.rpe||"",note:init.note||""},cardioCfg:cfg};
+  sheetState={cardio:{type:init.type||"Fietsen",min:init.min!=null?init.min:30,hr:init.hr||"",speed:init.speed!=null?init.speed:"",incline:init.incline!=null?init.incline:"",note:init.note||""},cardioCfg:cfg};
   const host=$("#sheetHost");host.innerHTML="";
   const sc=el("div","scrim");sc.onclick=closeSheet;
   const sh=el("div","sheet");sh.appendChild(el("div","grab"));sh.appendChild(el("div","sheet-in"));
@@ -1302,17 +1313,20 @@ function openCardio(cfg){
 }
 function drawCardio(){
   const c=sheetState.cardio;const cfg=sheetState.cardioCfg||{};const inr=$(".sheet-in");inr.innerHTML="";
-  inr.appendChild(el("div","eyebrow",cfg.eyebrow||"Ochtend-cardio"));
+  inr.appendChild(el("div","eyebrow",cfg.eyebrow||"Cardio"));
   inr.appendChild(el("h2",null,cfg.heading||"Sessie loggen"));
   const s1=el("div","block");s1.appendChild(el("span","eyebrow","Type"));
   const g=el("div","segs");
-  ["Zone 2 (LISS)","Intervallen","Zone 2 + intervallen","Anders"].forEach(t=>{
+  CARDIO_TYPES.forEach(t=>{
     const b=el("button","seg"+(c.type===t?" on":""),t);b.onclick=()=>{c.type=t;drawCardio()};g.appendChild(b)});
   s1.appendChild(g);inr.appendChild(s1);
   const s2=el("div","setrows");
-  const mk=(lab,obj,prop,suf,step)=>{const r=el("div","setrow");r.appendChild(el("div","lab",lab));
-    r.appendChild(stepField(obj,prop,suf,step,-1));r.appendChild(el("div"));s2.appendChild(r)};
-  mk("Min",c,"min","min",5);mk("HR",c,"hr","bpm",1);mk("RPE",c,"rpe","",1);
+  const mk=(lab,obj,prop,suf,step,tailTxt)=>{const r=el("div","setrow");r.appendChild(el("div","lab",lab));
+    r.appendChild(stepField(obj,prop,suf,step,-1));r.appendChild(tailTxt?el("div","lab",tailTxt):el("div"));s2.appendChild(r)};
+  mk("Min",c,"min","min",5);
+  mk("HR",c,"hr","bpm",1);
+  mk(cardioSpeedLabel(c.type),c,"speed",cardioSpeedSuffix(c.type),cardioSpeedStep(c.type));
+  if(cardioHasIncline(c.type)) mk("Helling",c,"incline","%",0.5,"optioneel");
   inr.appendChild(s2);
   const nt=el("textarea","namein");nt.rows=2;nt.placeholder="notitie (route, hoe het voelde…)";nt.value=c.note||"";
   nt.oninput=()=>c.note=nt.value;inr.appendChild(nt);
@@ -1321,10 +1335,11 @@ function drawCardio(){
     const missing=[];
     if(c.min===""||c.min==null) missing.push("minuten");
     if(c.hr===""||c.hr==null) missing.push("hartslag");
-    if(c.rpe===""||c.rpe==null) missing.push("RPE");
+    if(c.speed===""||c.speed==null) missing.push(cardioSpeedLabel(c.type).toLowerCase());
     if(missing.length){ toast("Vul ook in: "+missing.join(", ")); return; }
     const entry={date:new Date().toLocaleDateString("nl-NL",{day:"2-digit",month:"short"}),ts:Date.now(),
-      type:c.type,min:c.min||0,hr:c.hr||"",rpe:c.rpe||"",note:c.note||""};
+      type:c.type,min:c.min||0,hr:c.hr||"",speed:c.speed||"",
+      incline:(cardioHasIncline(c.type)&&c.incline!==""&&c.incline!=null)?c.incline:"",note:c.note||""};
     if(cfg.onSave){cfg.onSave(entry)} else {S.cardio.push(entry)}
     save();closeSheet();render();toast("Cardio gelogd.");
   };
