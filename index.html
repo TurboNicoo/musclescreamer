@@ -745,6 +745,68 @@ function weekStats(off){
           cardioN:cw.length, cardioMin:cw.reduce((a,c)=>a+(+c.min||0),0),
           cardioInt:cw.filter(c=>/interval/i.test(c.type)).length};
 }
+function repRangeBounds(repsStr){
+  if(!repsStr) return null;
+  const nums=(String(repsStr).match(/\d+/g)||[]).map(Number);
+  if(!nums.length) return null;
+  return {lo:Math.min(...nums), hi:Math.max(...nums)};
+}
+function weightStepFor(ex){
+  if(ex.equip==="dumbbell") return 2;
+  return 2.5;
+}
+function suggestProgression(ex,lastSets){
+  if(!lastSets||!lastSets.length) return null;
+  const valid=lastSets.filter(s=>s.r>0);
+  if(!valid.length) return null;
+  const range=repRangeBounds(ex.reps);
+  if(!range) return null;
+  const minReps=Math.min(...valid.map(s=>s.r));
+  const maxW=Math.max(0,...valid.map(s=>s.w||0));
+  const bw=ex.equip==="bodyweight";
+  if(bw){
+    if(minReps>=range.hi) return {type:"up",newWeight:null,text:`Overal ${range.hi}+ herhalingen gehaald — voeg gewicht toe of kies een lastigere variant.`};
+    if(minReps<range.lo) return {type:"hold",newWeight:null,text:`Onderkant van de reeks (${range.lo}) nog niet overal gehaald — zelfde niveau, focus op nette vorm.`};
+    return {type:"reps",newWeight:null,text:`Probeer dit keer meer herhalingen te halen (minimaal ${range.lo}).`};
+  }
+  const step=weightStepFor(ex);
+  if(minReps>=range.hi){
+    const newW=Math.round((maxW+step)*2)/2;
+    return {type:"up",newWeight:newW,text:`Overal ${range.hi}+ herhalingen gehaald op ${fmt(maxW)} kg — dit keer ${fmt(newW)} kg.`};
+  }
+  if(minReps<range.lo){
+    return {type:"hold",newWeight:maxW,text:`Onderkant van de reeks (${range.lo}) nog niet overal gehaald op ${fmt(maxW)} kg — blijf op dit gewicht.`};
+  }
+  return {type:"reps",newWeight:maxW,text:`Blijf op ${fmt(maxW)} kg, probeer de bovenkant van de reeks te halen (${range.hi}).`};
+}
+function weekAdvice(){
+  const lo=weekStart(0).getTime(), hi=lo+7*864e5;
+  const inWk=t=>t>=lo&&t<hi;
+  const up=[], hold=[];
+  const seen=new Set();
+  for(const p of DATA.programs){
+    for(const w of (p.weeks||[])){
+      for(let di=0;di<w.days.length;di++){
+        for(let xi=0;xi<w.days[di].exercises.length;xi++){
+          const ex=w.days[di].exercises[xi];
+          if(seen.has(ex.name)) continue;
+          const lk=p.id+":"+w.n+":"+di+":"+xi;
+          const hist=S.log[lk]||[];
+          if(!hist.length) continue;
+          const last=hist[hist.length-1];
+          if(!inWk(last.ts||0)) continue;
+          seen.add(ex.name);
+          const combined=last.sets2?last.sets.concat(last.sets2):last.sets;
+          const sugg=suggestProgression(ex,combined);
+          if(!sugg) continue;
+          if(sugg.type==="up") up.push({n:ex.name,t:sugg.text});
+          else if(sugg.type==="hold") hold.push({n:ex.name,t:sugg.text});
+        }
+      }
+    }
+  }
+  return {up:up.slice(0,8), hold:hold.slice(0,8)};
+}
 function renderReport(a){
   const wk=weekStats(0);
   a.appendChild(el("div","sectlabel",`<h3>Deze week</h3><span class="eyebrow">${fmtRange(0)}</span>`));
@@ -752,8 +814,30 @@ function renderReport(a){
   const st=(v,l)=>g.appendChild(el("div","stat",`<b>${v}</b><span>${l}</span>`));
   st(wk.workouts,"trainingen"); st(wk.sets,"werksets"); st(wk.reps,"herhalingen");
   st(wk.volume.toLocaleString("nl-NL"),"kg volume");
+  st(wk.prs,"nieuwe records"); st(wk.workouts?Math.round(wk.sets/wk.workouts):0,"sets/training");
   st(wk.cardioN,"cardio-sessies"); st(wk.cardioMin,"cardio-minuten");
   a.appendChild(g);
+
+  const adv=weekAdvice();
+  a.appendChild(el("div","sectlabel",`<h3>Advies voor komende week</h3><span class="eyebrow">${adv.up.length+adv.hold.length} items</span>`));
+  if(!adv.up.length&&!adv.hold.length){
+    a.appendChild(el("div","empty","Log deze week een paar oefeningen om hier gericht advies te zien."));
+  } else {
+    if(adv.up.length){
+      const ub=el("div","subsec");ub.style.marginTop="0";ub.style.borderTop="0";ub.style.paddingTop="0";
+      ub.appendChild(el("span","eyebrow","Klaar om te verzwaren"));
+      const uw=el("div","hist");
+      adv.up.forEach(m=>uw.appendChild(el("div","hrow",`<span>${esc(m.n)}</span><span class="up">▲ ${esc(m.t)}</span>`)));
+      ub.appendChild(uw);a.appendChild(ub);
+    }
+    if(adv.hold.length){
+      const hb=el("div","subsec");
+      hb.appendChild(el("span","eyebrow","Focus op vorm & herhalingen"));
+      const hw=el("div","hist");
+      adv.hold.forEach(m=>hw.appendChild(el("div","hrow",`<span>${esc(m.n)}</span><span>${esc(m.t)}</span>`)));
+      hb.appendChild(hw);a.appendChild(hb);
+    }
+  }
 
   a.appendChild(el("div","sectlabel",`<h3>Progressie t.o.v. vorige keer</h3><span class="eyebrow">${wk.prs}▲ ${wk.drops}▼</span>`));
   const l=el("div","hist");
@@ -1140,11 +1224,23 @@ function openEx(ex,idx){
   const hist=historyForExercise(ex,lk);const last=hist.length?hist[hist.length-1]:null;
   const nSets=ex.sets||3;
   const parts=supersetParts(ex.name);
-  const mkRows=(key)=>Array.from({length:nSets},(_,i)=>({
-    w:last&&last[key]&&last[key][i]?last[key][i].w:"",
-    r:last&&last[key]&&last[key][i]?last[key][i].r:(ex.reps&&/^\d+$/.test(ex.reps)?ex.reps:"")
-  }));
-  sheetState={ex,idx,lk,parts,rowsA:mkRows("sets"),rowsB:parts?mkRows("sets2"):null};
+  const suggA=last?suggestProgression(ex,last.sets):null;
+  const suggB=(parts&&last&&last.sets2)?suggestProgression(ex,last.sets2):null;
+  const range=repRangeBounds(ex.reps);
+  const mkRows=(key,sugg)=>Array.from({length:nSets},(_,i)=>{
+    const prevSet=last&&last[key]&&last[key][i];
+    let w=prevSet?prevSet.w:"";
+    let r=prevSet?prevSet.r:(ex.reps&&/^\d+$/.test(ex.reps)?ex.reps:"");
+    if(sugg){
+      if(sugg.newWeight!=null) w=sugg.newWeight;
+      if(range){
+        if(sugg.type==="up") r=range.lo;
+        else if(sugg.type==="reps") r=range.hi;
+      }
+    }
+    return {w,r};
+  });
+  sheetState={ex,idx,lk,parts,rowsA:mkRows("sets",suggA),rowsB:parts?mkRows("sets2",suggB):null,suggA,suggB};
   const host=$("#sheetHost");host.innerHTML="";
   const sc=el("div","scrim");sc.onclick=closeSheet;
   const sh=el("div","sheet");sh.setAttribute("role","dialog");sh.setAttribute("aria-modal","true");
@@ -1183,13 +1279,17 @@ function drawEx(){
     b.innerHTML=`<a class="vidlink" href="${esc(ex.video)}" target="_blank" rel="noopener">${ic.play} Instructievideo (John Meadows)</a>`;
     inr.appendChild(b)}
 
-  const buildRows=(rows,eyebrowTxt,titleTxt)=>{
+  const buildRows=(rows,eyebrowTxt,titleTxt,sugg)=>{
     const sr=el("div","setrows");sr.style.marginTop="18px";
     sr.appendChild(el("div","eyebrow",eyebrowTxt));
     if(titleTxt){
       const t=el("div",null,esc(titleTxt));
       t.style.cssText="font-family:'Archivo';font-weight:700;font-size:15px;margin:3px 0 10px;color:var(--ink)";
       sr.appendChild(t);
+    }
+    if(sugg){
+      const nb=el("div","note-box",`${ic.info}<span><strong>Progressie-advies:</strong> ${esc(sugg.text)}</span>`);
+      sr.appendChild(nb);
     }
     rows.forEach((row,i)=>{const r=el("div","setrow");
       r.appendChild(el("div","lab","Set "+(i+1)));
@@ -1199,10 +1299,10 @@ function drawEx(){
     return sr;
   };
   if(parts){
-    inr.appendChild(buildRows(rowsA,"Loggen 1/2",parts[0]));
-    inr.appendChild(buildRows(rowsB,"Loggen 2/2",parts[1]));
+    inr.appendChild(buildRows(rowsA,"Loggen 1/2",parts[0],sheetState.suggA));
+    inr.appendChild(buildRows(rowsB,"Loggen 2/2",parts[1],sheetState.suggB));
   } else {
-    inr.appendChild(buildRows(rowsA,"Loggen",null));
+    inr.appendChild(buildRows(rowsA,"Loggen",null,sheetState.suggA));
   }
   const done=el("button","btn","Ronde afronden");done.onclick=finishEx;inr.appendChild(done);
 
